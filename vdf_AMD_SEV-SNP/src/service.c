@@ -1,5 +1,5 @@
-#include "../include/rate_limiting.h"
+#include <stdio.h>
 
-int is_contained(int element) {
-	return 1;
+void service(unsigned long requested_element) {
+	printf("service executed on %lu\n", requested_element);
 }
