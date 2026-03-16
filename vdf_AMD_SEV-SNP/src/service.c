@@ -1,5 +1,5 @@
 #include <stdio.h>
 
-void service(unsigned long requested_element) {
-	printf("service executed on %lu\n", requested_element);
+char *service(unsigned long requested_element) {
+	return requested_element % 2 == 0? "1": "0";
 }

@@ -10,7 +10,7 @@
 #define NUM_BITS 2
 #define MAX_BASE 13
 #else
-#define T_BASE 10000
+#define T_BASE 50000 	/* this gives roughly 1 second of computation time */
 #define NUM_BITS 1024
 #define MAX_BASE 16384
 #endif
@@ -76,12 +76,9 @@ struct puzzle *generate_puzzle(unsigned long requested_element)
 
 	struct puzzle *res = malloc(sizeof(struct puzzle));
 	res->N = malloc(513);
-	res->N_len = strnlen(N_str, 512);
 	res->x = malloc(33);
-	res->x_len = 32;
 	res->T = malloc(33);
-	res->T_len = 32;
-	strncpy(res->N, N_str, res->N_len);
+	strncpy(res->N, N_str, strlen(N_str));
 	res->N[512] = '\0';
 	sprintf(res->x, "%032x", x);
 	res->x[32] = '\0';

@@ -13,7 +13,7 @@ BUILD_DIR = build
 SRC = $(wildcard $(SRC_DIR)/*.c)
 OBJ = $(SRC:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 
-TARGET = $(BUILD_DIR)/endpoint
+TARGET = $(BUILD_DIR)/server
 
 all: $(TARGET)
 

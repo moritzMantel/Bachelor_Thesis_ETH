@@ -6,11 +6,8 @@ int rate_limiting_init();
 int rate_limiting_clean_up();
 
 struct puzzle {
-	size_t N_len;
 	char *N;
-	size_t x_len;
 	char *x;
-	size_t T_len;
 	char *T;
 };
 struct request_solve {
