@@ -35,7 +35,10 @@
 
 #include <string>
 #include <iostream>
+#include <fstream>
 #include <chrono>
+#include <tuple>
+#include <vector>
 
 #include <unistd.h>
 #include <pwd.h>
@@ -50,17 +53,7 @@
 
 #include <mbedtls/bignum.h>
 
-#define EVALUATION
-
-#ifdef EVALUATION
-#define compute_puzzle compute_puzzle_timed
-#define request_puzzle request_puzzle_timed
-#define submit_solution submit_solution_timed
-#else
-#define compute_puzzle compute_puzzle_untimed
-#define request_puzzle ecall_request_puzzle
-#define submit_solution ecall_submit_solution
-#endif
+#define BASE_CONFIG {1024, 10, 100, 0, 14, 0, 0, 0}
 
 /* Global EID shared by multiple threads */
 sgx_enclave_id_t global_eid = 0;
@@ -193,11 +186,6 @@ int initialize_enclave(void)
         print_error_message(ret);
         return -1;
     }
-
-    int ret_init;
-    ecall_init(global_eid, &ret_init);
-
-    return ret_init;
 }
 
 /* OCall functions */
@@ -213,7 +201,7 @@ void ocall_print_string(const char *str)
  * Computes the VDF given by x, N and T.
  * Returns the solution y = x^2^T mod N.
  */
-void compute_puzzle_untimed(char *y, char *x, char *N, uint64_t T)
+void compute_puzzle_internal(char *y, char *x, char *N, uint64_t T)
 {
     mbedtls_mpi x_mpi;
     mbedtls_mpi N_mpi;
@@ -227,10 +215,6 @@ void compute_puzzle_untimed(char *y, char *x, char *N, uint64_t T)
     if (mbedtls_mpi_read_string(&N_mpi, 16, N) != 0)
         printf("N read failed\n");
 
-    printf("x: %s\n", x);
-    printf("N: %s\n", N);
-    printf("T: %lu\n", T);
-
     for (uint64_t i = 0; i < T; i++) {
         if (mbedtls_mpi_mul_mpi(&x_mpi, &x_mpi, &x_mpi) != 0)
             printf("x mult failed\n");
@@ -241,28 +225,72 @@ void compute_puzzle_untimed(char *y, char *x, char *N, uint64_t T)
     size_t written;
     mbedtls_mpi_write_string(&x_mpi, 16, y, MPI_STR_SIZE, &written);
 
-    printf("computed solution: %s\n", y);
-
     mbedtls_mpi_free(&x_mpi);
     mbedtls_mpi_free(&N_mpi);
 }
 
-/*
- * Timing wrapper around computation
- */
-void compute_puzzle_timed(char *y, char *x, char *N, uint64_t T)
+int64_t init_enclave()
 {
+    int ret_init;
     auto start = std::chrono::high_resolution_clock::now();
     
-    compute_puzzle_untimed(y, x, N, T);
+    ecall_init(global_eid, &ret_init);
 
     auto end = std::chrono::high_resolution_clock::now();
 
-    std::cout << "time to solve for T= " << T << ": " 
-        << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << " ms" << std::endl;
+    if (ret_init != 0) {
+        printf("initialization error: %d", ret_init);
+    }
+
+    return std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
+        .count();
 }
 
-void request_puzzle_timed(int global_eid, int *request_status, char*x, char*N, uint64_t *T, int s, uint64_t *elements)
+int64_t teardown_enclave() {
+    auto start = std::chrono::high_resolution_clock::now();
+    
+    ecall_teardown(global_eid);
+
+    auto end = std::chrono::high_resolution_clock::now();
+
+    return std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
+        .count();
+}
+
+int64_t set_config(struct config *c) 
+{
+
+    int ret_status;
+    auto start = std::chrono::high_resolution_clock::now();
+    
+    ecall_set_config(global_eid, &ret_status, c);
+
+    auto end = std::chrono::high_resolution_clock::now();
+
+    if (ret_status < 0) {
+        printf("config failed: %d\n", ret_status);
+    }
+
+    return std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
+        .count();
+}
+/*
+ * Timing wrapper around computation
+ */
+int64_t compute_puzzle(char *y, char *x, char *N, uint64_t T)
+{
+    auto start = std::chrono::high_resolution_clock::now();
+    
+    compute_puzzle_internal(y, x, N, T);
+
+    auto end = std::chrono::high_resolution_clock::now();
+
+    return std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
+        .count();
+}
+
+int64_t request_puzzle(int global_eid, int *request_status, char*x,
+                        char*N, uint64_t *T, int s, uint64_t *elements)
 {
     auto start = std::chrono::steady_clock::now();
     
@@ -270,11 +298,12 @@ void request_puzzle_timed(int global_eid, int *request_status, char*x, char*N, u
 
     auto end = std::chrono::steady_clock::now();
 
-    std::cout << "time to request:" 
-        << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << " ms" << std::endl;
+    return std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
+        .count();
 }
 
-void submit_solution_timed(int global_eid, int *ret_val, uint64_t *intersection, int s, uint64_t *elements, char *sol)
+int64_t submit_solution(int global_eid, int *ret_val, uint64_t *intersection,
+                        int s, uint64_t *elements, char *sol)
 {
     auto start = std::chrono::steady_clock::now();
     
@@ -282,8 +311,112 @@ void submit_solution_timed(int global_eid, int *ret_val, uint64_t *intersection,
 
     auto end = std::chrono::steady_clock::now();
 
-    std::cout << "time to verify and compute intersection:" 
-        << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << " ms" << std::endl;
+    return std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
+        .count();
+}
+
+
+std::tuple<int64_t,int64_t,int64_t> make_request(std::vector<uint64_t> elements) {
+    char x[MPI_STR_SIZE];
+    char N[MPI_STR_SIZE];
+    uint64_t T;
+
+    int request_status;
+    int64_t req_time = request_puzzle(global_eid, &request_status, x, N,
+                            &T, elements.size() * sizeof(uint64_t), elements.data());
+    switch (request_status) {
+    case 0: { break; }
+    case -1: { printf("mpi operations failed\n"); return {-1, -1, -1}; }
+    case -2: { printf("mpi hex string write failed\n"); return {-1, -1, -1}; }
+    default: { printf("unknown error in puzzle generation\n"); return {-1, -1, -1}; }
+    };
+
+    char sol[MPI_STR_SIZE];
+    int64_t comp_time = compute_puzzle(sol, x, N, T);
+
+    int ret_val;
+    uint64_t intersection[elements.size()];
+
+    int64_t submit_time = submit_solution(global_eid, &ret_val, intersection,
+                            elements.size() * sizeof(uint64_t), elements.data(), sol);
+
+    switch (ret_val) {
+    case -1: { printf("VDF not accepted\n"); return {-1, -1, -1}; }
+    case -2: { printf("mpi operations failed\n"); return {-1, -1, -1}; }
+    case -3: { printf("mpi hex string write failed\n"); return {-1, -1, -1}; }
+    default: {
+        printf("ok\n");
+        return {req_time, comp_time, submit_time};
+    }
+    };
+}
+
+void log_config(std::ofstream &f, struct config *c)
+{
+    f   << c->num_bits << ", "
+        << c->private_set_digits << ", "
+        << c->private_set_size << ", "
+        << c->min_expected_cycles << ", "
+        << c->T_exp << ", "
+        << c->T_baseline_comp << ", "
+        << c->T_input_size_comp << ", "
+        << c->T_private_set_comp << ", "
+        << set_config(c) << ", ";
+}
+
+void run_config(std::ofstream &f, struct config *c) {
+    log_config(f, c);
+    std::vector<uint64_t> elements = {1};
+    auto [rt, ct, st] = make_request(elements);
+    f << elements.size() << ", " << rt << ", " << ct << ", " << st << std::endl;
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            elements.push_back(i*j);
+        }
+        auto [rt, ct, st] = make_request(elements);
+        log_config(f, c);
+        f << elements.size() << ", " << rt << ", " << ct << ", " << st << std::endl;
+    }
+}
+
+void run_tests()
+{
+    std::ofstream config_data("data/config.csv");
+    if (!config_data.is_open()) {
+        std::cerr << "Failed to open file!\n";
+        return;
+    }
+    config_data << "num_bits, private_set_digits, private_set_size, min_expected_cycles, T_exp, T_baseline_comp, T_input_size_comp, T_private_set_comp, ConfigTime, RequestSize, RequestTime, SolveTime, SubmitTime\n";
+    /*
+    *   struct config {
+	*       uint64_t num_bits;
+    *       uint64_t private_set_digits;
+	*       uint64_t private_set_size;
+    *       uint64_t min_expected_cycles;
+	*       int T_exp;
+	*       int T_baseline_comp;
+	*       int T_input_size_comp;
+	*       int T_private_set_comp;
+    *   };
+    */
+
+    struct config c = BASE_CONFIG;
+    for (uint64_t t_exp = 1; t_exp <= 12; t_exp++) {
+        for (int bc = 0; bc < 1; bc++) {
+            for (int isc = 0; isc < 2; isc++) {
+                for (int psc = 0; psc < 1; psc++) {
+                    c.T_exp = t_exp;
+                    c.T_baseline_comp = bc;
+                    c.T_input_size_comp = isc;
+                    c.T_private_set_comp = psc;
+                    run_config(config_data, &c);
+                }
+            }
+        }
+    }
+    c = BASE_CONFIG;
+
+    config_data.close();
 }
 
 
@@ -298,53 +431,25 @@ int SGX_CDECL main(int argc, char *argv[])
         getchar();
         return -1; 
     }
-    uint64_t elements[argc-1];
 
-    for (int i = 1; i < argc; i++) {
-        char *end;
-        uint64_t element = std::strtoul(argv[i], &end, 10);
-        if (*end != '\0')
-            printf("argv[%d] invalid (skipped)\n", i);
-        elements[i-1] = element;
+    std::ofstream encl_data("data/encl_data.csv");
+    if (!encl_data.is_open()) {
+        std::cerr << "Failed to open file\n";
+        return -1;
     }
-    char x[MPI_STR_SIZE];
-    char N[MPI_STR_SIZE];
-    uint64_t T;
+    encl_data << "InitTime[ms], TeardownTime[ms]\n";
 
-    int request_status;
-    request_puzzle(global_eid, &request_status, x, N, &T, (argc-1) * sizeof(uint64_t), elements);
-    switch (request_status) {
-    case 0: { printf("puzzle received\n"); break; }
-    case -1: { printf("mpi operations failed\n"); break; }
-    case -2: { printf("mpi hex string write failed\n"); break; }
-    default: { printf("unknown error in puzzle generation\n"); break; }
-    };
+    int64_t init_time = init_enclave();
+    encl_data << init_time << ", ";
 
-    char sol[MPI_STR_SIZE];
-    compute_puzzle(sol, x, N, T);
+    run_tests();
 
-    int ret_val;
-    uint64_t intersection[argc-1];
-
-    submit_solution(global_eid, &ret_val, intersection, (argc-1) * sizeof(uint64_t), elements, sol);
-
-    switch (ret_val) {
-    case -1: { printf("VDF not accepted\n"); break; }
-    case -2: { printf("mpi operations failed\n"); break; }
-    case -3: { printf("mpi hex string write failed\n"); break; }
-    default: {
-        printf("result received: intersection is\n{ ");
-        for (int i = 0; i < ret_val; i++)
-            printf("+%lu ", intersection[i]);
-        printf(" }\n");
-        break;
-    }
-    };
-
-    ecall_teardown(global_eid);
+    int64_t tdwn_time = teardown_enclave();
+    encl_data << tdwn_time << std::endl;
 
     sgx_destroy_enclave(global_eid);
     
+    encl_data.close();
     printf("Enter a character before exit ...\n");
     getchar();
     return 0;

@@ -48,6 +48,8 @@
 #define MPI_STR_SIZE 1024
 #define CYCLES_PER_SQUARING 5000
 
+#define debug_build
+
 /*
  * struct config {
  *      uint64_t num_bits:              
