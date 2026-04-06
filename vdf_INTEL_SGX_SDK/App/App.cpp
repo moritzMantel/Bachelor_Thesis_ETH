@@ -353,29 +353,29 @@ std::tuple<int64_t,int64_t,int64_t> make_request(std::vector<uint64_t> elements)
 
 void log_config(std::ofstream &f, struct config *c)
 {
-    f   << c->num_bits << ", "
-        << c->private_set_digits << ", "
-        << c->private_set_size << ", "
-        << c->min_expected_cycles << ", "
-        << c->T_exp << ", "
-        << c->T_baseline_comp << ", "
-        << c->T_input_size_comp << ", "
-        << c->T_private_set_comp << ", "
-        << set_config(c) << ", ";
+    f   << c->num_bits << ","
+        << c->private_set_digits << ","
+        << c->private_set_size << ","
+        << c->min_expected_cycles << ","
+        << c->T_exp << ","
+        << c->T_baseline_comp << ","
+        << c->T_input_size_comp << ","
+        << c->T_private_set_comp << ","
+        << set_config(c) << ",";
 }
 
 void run_config(std::ofstream &f, struct config *c) {
     log_config(f, c);
     std::vector<uint64_t> elements = {1};
     auto [rt, ct, st] = make_request(elements);
-    f << elements.size() << ", " << rt << ", " << ct << ", " << st << std::endl;
+    f << elements.size() << "," << rt << "," << ct << "," << st << std::endl;
     for (int i = 0; i < 3; i++) {
         for (int j = 0; j < 3; j++) {
             elements.push_back(i*j);
         }
         auto [rt, ct, st] = make_request(elements);
         log_config(f, c);
-        f << elements.size() << ", " << rt << ", " << ct << ", " << st << std::endl;
+        f << elements.size() << "," << rt << "," << ct << "," << st << std::endl;
     }
 }
 
@@ -386,7 +386,7 @@ void run_tests()
         std::cerr << "Failed to open file!\n";
         return;
     }
-    config_data << "num_bits, private_set_digits, private_set_size, min_expected_cycles, T_exp, T_baseline_comp, T_input_size_comp, T_private_set_comp, ConfigTime, RequestSize, RequestTime, SolveTime, SubmitTime\n";
+    config_data << "num_bits,private_set_digits,private_set_size,min_expected_cycles,T_exp,T_baseline_comp,T_input_size_comp,T_private_set_comp,ConfigTime,RequestSize,RequestTime,SolveTime,SubmitTime\n";
     /*
     *   struct config {
 	*       uint64_t num_bits;
@@ -401,7 +401,7 @@ void run_tests()
     */
 
     struct config c = BASE_CONFIG;
-    for (uint64_t t_exp = 1; t_exp <= 12; t_exp++) {
+    for (uint64_t t_exp = 5; t_exp <= 10; t_exp++) {
         for (int bc = 0; bc < 1; bc++) {
             for (int isc = 0; isc < 2; isc++) {
                 for (int psc = 0; psc < 1; psc++) {
@@ -440,7 +440,7 @@ int SGX_CDECL main(int argc, char *argv[])
     encl_data << "InitTime[ms], TeardownTime[ms]\n";
 
     int64_t init_time = init_enclave();
-    encl_data << init_time << ", ";
+    encl_data << init_time << ",";
 
     run_tests();
 
