@@ -46,9 +46,11 @@
 #define mbedtls_printf       printf
 
 #define MPI_STR_SIZE 1024
-#define CYCLES_PER_SQUARING 5000
+#define CYCLES_PER_SQUARING 300000
 
 #define debug_build
+
+int set_baseline(void);
 
 /*
  * struct config {
@@ -92,8 +94,9 @@ int initialized = 0;
 
 std::unordered_set<uint64_t> private_set;
 
-void initialize_private_set()
+void initialize_private_set(void)
 {
+    private_set.clear();
     uint64_t stepsize = (uint64_t) pow(10, conf.private_set_digits) / conf.private_set_size;
 
     for (int i = 0; i < conf.private_set_size; i++) {
@@ -131,13 +134,15 @@ int ecall_set_config(struct config *c)
         return -1;
     
     conf = *c;
+    set_baseline();
+    initialize_private_set();
     return 0;
 #else
     return -2;
 #endif
 }
 
-int set_baseline()
+int set_baseline(void)
 {
     uint64_t square_it;
     switch(conf.T_baseline_comp) {
@@ -300,8 +305,8 @@ void ecall_teardown(void)
 {
     if (!initialized)
         return;
-    mbedtls_ctr_drbg_free( &ctr_drbg );
-    mbedtls_entropy_free( &entropy );
+    mbedtls_ctr_drbg_free(&ctr_drbg);
+    mbedtls_entropy_free(&entropy);
     mbedtls_mpi_free(&N);
     mbedtls_mpi_free(&phi);
     mbedtls_mpi_free(&exponent);

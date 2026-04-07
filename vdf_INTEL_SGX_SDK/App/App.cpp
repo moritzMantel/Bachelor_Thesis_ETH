@@ -39,6 +39,7 @@
 #include <chrono>
 #include <tuple>
 #include <vector>
+#include <x86intrin.h>
 
 #include <unistd.h>
 #include <pwd.h>
@@ -197,6 +198,11 @@ void ocall_print_string(const char *str)
     printf("%s", str);
 }
 
+uint64_t get_cycles() {
+    unsigned aux;
+    return __rdtscp(&aux);
+}
+
 /*
  * Computes the VDF given by x, N and T.
  * Returns the solution y = x^2^T mod N.
@@ -220,6 +226,47 @@ void compute_puzzle_internal(char *y, char *x, char *N, uint64_t T)
             printf("x mult failed\n");
         if (mbedtls_mpi_mod_mpi(&x_mpi, &x_mpi, &N_mpi) != 0)
             printf("x mod failed\n");
+    }
+
+    size_t written;
+    mbedtls_mpi_write_string(&x_mpi, 16, y, MPI_STR_SIZE, &written);
+
+    mbedtls_mpi_free(&x_mpi);
+    mbedtls_mpi_free(&N_mpi);
+}
+
+/*
+ * Computes the VDF given by x, N and T.
+ * Returns the solution y = x^2^T mod N.
+ * Additionally records the cycles.
+ */
+void compute_puzzle_internal_cycles(char *y, char *x, char *N, uint64_t T, std::ostream &f)
+{
+    mbedtls_mpi x_mpi;
+    mbedtls_mpi N_mpi;
+
+
+    mbedtls_mpi_init(&x_mpi);
+    mbedtls_mpi_init(&N_mpi);
+
+    if (mbedtls_mpi_read_string(&x_mpi, 16, x) != 0)
+        printf("x read failed\n");
+    if (mbedtls_mpi_read_string(&N_mpi, 16, N) != 0)
+        printf("N read failed\n");
+
+    for (uint64_t i = 0; i < T; i++) {
+
+        uint64_t start = get_cycles();
+
+        if (mbedtls_mpi_mul_mpi(&x_mpi, &x_mpi, &x_mpi) != 0)
+            printf("x mult failed\n");
+        if (mbedtls_mpi_mod_mpi(&x_mpi, &x_mpi, &N_mpi) != 0)
+            printf("x mod failed\n");
+
+        uint64_t end = get_cycles();
+
+        f << T << "," << i << ","
+        << (end - start) << std::endl;
     }
 
     size_t written;
@@ -277,11 +324,26 @@ int64_t set_config(struct config *c)
 /*
  * Timing wrapper around computation
  */
-int64_t compute_puzzle(char *y, char *x, char *N, uint64_t T)
+int64_t compute_puzzle(char *y, char *x, char *N, uint64_t T, int test_mode)
 {
+    if (test_mode >= 2)
+        std::cout << "Puzzle: " << std::endl
+                << "x: " << x << std::endl
+                << "N: " << N << std::endl
+                << "T: " << T << std::endl;
+
     auto start = std::chrono::high_resolution_clock::now();
-    
-    compute_puzzle_internal(y, x, N, T);
+
+    if (test_mode % 2 == 1) {
+        std::ofstream f("data/cycles.csv");
+        if (!f)
+            printf("file open failed\n");
+        f << "T,Iteration,Cycles" << std::endl;
+        compute_puzzle_internal_cycles(y, x, N, T, f);
+        f.close();
+    } else {
+        compute_puzzle_internal(y, x, N, T);
+    }
 
     auto end = std::chrono::high_resolution_clock::now();
 
@@ -290,7 +352,7 @@ int64_t compute_puzzle(char *y, char *x, char *N, uint64_t T)
 }
 
 int64_t request_puzzle(int global_eid, int *request_status, char*x,
-                        char*N, uint64_t *T, int s, uint64_t *elements)
+                        char*N, uint64_t *T, int s, uint64_t *elements, int test_mode)
 {
     auto start = std::chrono::steady_clock::now();
     
@@ -303,7 +365,7 @@ int64_t request_puzzle(int global_eid, int *request_status, char*x,
 }
 
 int64_t submit_solution(int global_eid, int *ret_val, uint64_t *intersection,
-                        int s, uint64_t *elements, char *sol)
+                        int s, uint64_t *elements, char *sol, int test_mode)
 {
     auto start = std::chrono::steady_clock::now();
     
@@ -316,14 +378,16 @@ int64_t submit_solution(int global_eid, int *ret_val, uint64_t *intersection,
 }
 
 
-std::tuple<int64_t,int64_t,int64_t> make_request(std::vector<uint64_t> elements) {
+std::tuple<int64_t,int64_t,int64_t> 
+make_request(std::vector<uint64_t> elements, int test_mode)
+{
     char x[MPI_STR_SIZE];
     char N[MPI_STR_SIZE];
     uint64_t T;
 
     int request_status;
     int64_t req_time = request_puzzle(global_eid, &request_status, x, N,
-                            &T, elements.size() * sizeof(uint64_t), elements.data());
+                            &T, elements.size() * sizeof(uint64_t), elements.data(), test_mode);
     switch (request_status) {
     case 0: { break; }
     case -1: { printf("mpi operations failed\n"); return {-1, -1, -1}; }
@@ -332,26 +396,28 @@ std::tuple<int64_t,int64_t,int64_t> make_request(std::vector<uint64_t> elements)
     };
 
     char sol[MPI_STR_SIZE];
-    int64_t comp_time = compute_puzzle(sol, x, N, T);
+    int64_t comp_time = compute_puzzle(sol, x, N, T, test_mode);
 
     int ret_val;
     uint64_t intersection[elements.size()];
 
     int64_t submit_time = submit_solution(global_eid, &ret_val, intersection,
-                            elements.size() * sizeof(uint64_t), elements.data(), sol);
+                            elements.size() * sizeof(uint64_t), elements.data(), sol, test_mode);
 
     switch (ret_val) {
     case -1: { printf("VDF not accepted\n"); return {-1, -1, -1}; }
     case -2: { printf("mpi operations failed\n"); return {-1, -1, -1}; }
     case -3: { printf("mpi hex string write failed\n"); return {-1, -1, -1}; }
     default: {
-        printf("ok\n");
+        if (test_mode >= 2) {
+            printf("ok\n");
+        }
         return {req_time, comp_time, submit_time};
     }
     };
 }
 
-void log_config(std::ofstream &f, struct config *c)
+void log_config(std::ostream &f, struct config *c)
 {
     f   << c->num_bits << ","
         << c->private_set_digits << ","
@@ -360,28 +426,33 @@ void log_config(std::ofstream &f, struct config *c)
         << c->T_exp << ","
         << c->T_baseline_comp << ","
         << c->T_input_size_comp << ","
-        << c->T_private_set_comp << ","
-        << set_config(c) << ",";
+        << c->T_private_set_comp << ",";
 }
 
-void run_config(std::ofstream &f, struct config *c) {
-    log_config(f, c);
-    std::vector<uint64_t> elements = {1};
-    auto [rt, ct, st] = make_request(elements);
-    f << elements.size() << "," << rt << "," << ct << "," << st << std::endl;
-    for (int i = 0; i < 3; i++) {
-        for (int j = 0; j < 3; j++) {
+void run_config(std::ofstream &f, struct config *c, int min_input_size,
+                int max_input_size, int stepsize, int test_mode)
+{
+    if (test_mode >= 2)
+        log_config(std::cout, c);
+    std::vector<uint64_t> elements;
+    for (int i = min_input_size; i <= max_input_size; i += stepsize) {
+        for (int j = 0; j < stepsize; j++) {
             elements.push_back(i*j);
         }
-        auto [rt, ct, st] = make_request(elements);
         log_config(f, c);
+        f << set_config(c) << ",";
+        auto [rt, ct, st] = make_request(elements, test_mode);
         f << elements.size() << "," << rt << "," << ct << "," << st << std::endl;
     }
 }
 
-void run_tests()
+void run_tests(int T_exp_min, int T_exp_max, int T_blc_min, int T_blc_max,
+                int T_isc_min, int T_isc_max, int T_psc_min, int T_psc_max,
+                int min_input_size, int max_input_size, int stepsize,
+                std::string fn, int test_mode)
 {
-    std::ofstream config_data("data/config.csv");
+    std::string filename = "data/" + fn + ".csv";
+    std::ofstream config_data(filename);
     if (!config_data.is_open()) {
         std::cerr << "Failed to open file!\n";
         return;
@@ -399,17 +470,16 @@ void run_tests()
 	*       int T_private_set_comp;
     *   };
     */
-
     struct config c = BASE_CONFIG;
-    for (uint64_t t_exp = 5; t_exp <= 10; t_exp++) {
-        for (int bc = 0; bc < 1; bc++) {
-            for (int isc = 0; isc < 2; isc++) {
-                for (int psc = 0; psc < 1; psc++) {
+    for (uint64_t t_exp = T_exp_min; t_exp <= T_exp_max; t_exp++) {
+        for (int bc = T_blc_min; bc <= T_blc_max; bc++) {
+            for (int isc = T_isc_min; isc <= T_isc_max; isc++) {
+                for (int psc = T_psc_min; psc <= T_psc_max; psc++) {
                     c.T_exp = t_exp;
                     c.T_baseline_comp = bc;
                     c.T_input_size_comp = isc;
                     c.T_private_set_comp = psc;
-                    run_config(config_data, &c);
+                    run_config(config_data, &c, min_input_size, max_input_size, stepsize, test_mode);
                 }
             }
         }
@@ -423,7 +493,10 @@ void run_tests()
 /* Application entry */
 int SGX_CDECL main(int argc, char *argv[])
 {
-    /* Initialize the enclave */
+    if (argc < 14) {
+        printf("usage: ./app <min T_exp> <max T_exp> <min T_baseline_comp> <max T_basline_comp> <min T_input_size_comp> <max T_input_size_comp> <min T_private_set_comp> <max T_private_set_comp> <min InputSize> <max InputSize> <input size stepsize> <filename> <test_mode>\n");
+        return -1;
+    }
     int init_ret = initialize_enclave();
     if(init_ret < 0){
         printf("Initialisation of crypto primitives failed: %d\n", init_ret);
@@ -442,7 +515,7 @@ int SGX_CDECL main(int argc, char *argv[])
     int64_t init_time = init_enclave();
     encl_data << init_time << ",";
 
-    run_tests();
+    run_tests(std::stoi(argv[1]),std::stoi(argv[2]),std::stoi(argv[3]),std::stoi(argv[4]),std::stoi(argv[5]),std::stoi(argv[6]),std::stoi(argv[7]),std::stoi(argv[8]),std::stoi(argv[9]),std::stoi(argv[10]),std::stoi(argv[11]), argv[12], std::stoi(argv[13]));
 
     int64_t tdwn_time = teardown_enclave();
     encl_data << tdwn_time << std::endl;
