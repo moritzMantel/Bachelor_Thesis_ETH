@@ -28,8 +28,9 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
+
 #include <stdarg.h>
-#include <stdio.h>      /* vsnprintf */
+#include <stdio.h>              /* vsnprintf */
 #include <string.h>
 
 #include <string>
@@ -37,16 +38,16 @@
 #include <vector>
 
 #include "Enclave.h"
-#include "Enclave_t.h"  /* print_string */
+#include "Enclave_t.h"          /* print_string */
 #include "mbedtls/bignum.h"
 #include "mbedtls/entropy.h"
 #include "mbedtls/ctr_drbg.h"
 #include "mbedtls/sha256.h"
 
-#define mbedtls_printf       printf
+#define mbedtls_printf          printf
 
-#define MPI_STR_SIZE 1024
-#define CYCLES_PER_SQUARING 300000
+#define MPI_STR_SIZE            1024
+#define CYCLES_PER_SQUARING     300000
 
 #define debug_build
 
@@ -66,9 +67,9 @@ int set_baseline(void);
  */
 struct config conf = {
     1024,   // number of bits of modulus (/2)
-    11,     // how large is the domain of private set (eg. how many digits)
-    100,    // how many items should be in private set
-    0,      // expected number of cycles per request
+    4,     // how large is the domain of private set (eg. how many digits)
+    1000,    // how many items should be in private set
+    3000000,      // expected number of cycles per request
     15,     // for default T = 2^T_exp
     0,      // 0 for T = 2^T_exp, 
             // 1 for T s.t. min expected cycles sat.
@@ -153,11 +154,14 @@ int set_baseline(void)
         T_base = (uint64_t)1 << conf.T_exp;
         square_it = conf.T_exp;
         break;
-    } 
+    }
     case 1: {
         /* 
          * This implements the idea that a request should take a minimum of
          * conf.min_expected_cycles many cycles per request.
+         * At the same time, this can be seen as the full enumeration taking
+         * at least conf.min_expected_cycles times the magnitude of the domain
+         * many cycles.
          */
         square_it = log2(conf.min_expected_cycles / CYCLES_PER_SQUARING) + 1;
         T_base = (uint64_t)1 << square_it;
@@ -372,7 +376,7 @@ uint64_t compute_T_set()
          * 
          * This assumes that option 1 is set for baseline computation.
          */
-        return T_base * (private_set.size() / (uint64_t) pow(10, conf.private_set_digits));
+        return (uint64_t) ((T_base * private_set.size()) / pow(10, conf.private_set_digits));
     }
     default: {
         return T_base;
@@ -465,19 +469,18 @@ int adj_exponent_set(mbedtls_mpi *final_exp, uint64_t T_final)
          * Since scaling of the exponent mod phi only works for positive ints,
          * in this case, we have to completely recompute the exponent.
          */
-        if (mbedtls_mpi_lset(final_exp, 2) != 0) {
+        if (mbedtls_mpi_lset(final_exp, 1) != 0) {
             return -1;
         }
 
         for (uint64_t i = 0; i < T_final; i++) { 
-            if (mbedtls_mpi_mul_mpi(final_exp, final_exp, final_exp) != 0) {
+            if (mbedtls_mpi_mul_int(final_exp, final_exp, 2) != 0) {
                 return -1;
             }
             if (mbedtls_mpi_mod_mpi(final_exp, final_exp, &phi) != 0) {
                 return -1;
             }
         }
-
     }
     default: {
         return 0;

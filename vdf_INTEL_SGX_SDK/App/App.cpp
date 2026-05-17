@@ -54,7 +54,7 @@
 
 #include <mbedtls/bignum.h>
 
-#define BASE_CONFIG {1024, 10, 100, 0, 14, 0, 0, 0}
+#define BASE_CONFIG {1024, 4, 100, 3000000, 15, 0, 0, 0}
 
 /* Global EID shared by multiple threads */
 sgx_enclave_id_t global_eid = 0;
@@ -276,6 +276,10 @@ void compute_puzzle_internal_cycles(char *y, char *x, char *N, uint64_t T, std::
     mbedtls_mpi_free(&N_mpi);
 }
 
+/*
+ * Performs the ecall initializing the enclave.
+ * Returns the time the ecall took in ms.
+ */
 int64_t init_enclave()
 {
     int ret_init;
@@ -293,6 +297,10 @@ int64_t init_enclave()
         .count();
 }
 
+/*
+ * Performs the ecall tearing down the enclave.
+ * Returns the time the ecall took in ms.
+ */
 int64_t teardown_enclave() {
     auto start = std::chrono::high_resolution_clock::now();
     
@@ -304,9 +312,12 @@ int64_t teardown_enclave() {
         .count();
 }
 
+/* 
+ * Performs the ecall setting the config to c.
+ * Returns the time the ecall took in ms.
+ */
 int64_t set_config(struct config *c) 
 {
-
     int ret_status;
     auto start = std::chrono::high_resolution_clock::now();
     
@@ -321,8 +332,9 @@ int64_t set_config(struct config *c)
     return std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
         .count();
 }
+
 /*
- * Timing wrapper around computation
+ * Timing wrapper around internal computation
  */
 int64_t compute_puzzle(char *y, char *x, char *N, uint64_t T, int test_mode)
 {
@@ -351,6 +363,12 @@ int64_t compute_puzzle(char *y, char *x, char *N, uint64_t T, int test_mode)
         .count();
 }
 
+/*
+ * Performs the ecall requesting a puzzle from the enclave.
+ *
+ * The result is stored in the parameters x, N and T.
+ * Returns the time the ecall took in ms.
+ */
 int64_t request_puzzle(int global_eid, int *request_status, char*x,
                         char*N, uint64_t *T, int s, uint64_t *elements, int test_mode)
 {
@@ -364,6 +382,12 @@ int64_t request_puzzle(int global_eid, int *request_status, char*x,
         .count();
 }
 
+/*
+ * Performs the ecall to submit a request with the solution to the vdf.
+ *
+ * The resulting intersection is stored in intersection.
+ * Returns the time the ecall took in ms.
+ */
 int64_t submit_solution(int global_eid, int *ret_val, uint64_t *intersection,
                         int s, uint64_t *elements, char *sol, int test_mode)
 {
@@ -377,7 +401,16 @@ int64_t submit_solution(int global_eid, int *ret_val, uint64_t *intersection,
         .count();
 }
 
-
+/*
+ * Makes one complete request.
+ *
+ * First requests a puzzle from the enclave for the elements provided.
+ * Then computes the puzzle it got back from the enclave and
+ * finally, submits the computed solution to the puzzle getting the final
+ * intersection.
+ * 
+ * The individual times are recorded and returned together.
+ */
 std::tuple<int64_t,int64_t,int64_t> 
 make_request(std::vector<uint64_t> elements, int test_mode)
 {
@@ -429,6 +462,11 @@ void log_config(std::ostream &f, struct config *c)
         << c->T_private_set_comp << ",";
 }
 
+/*
+ * Runs a single configuration.
+ * First logs the configuration parameters, then makes a request for each
+ * input size as defined by the range provided.
+ */
 void run_config(std::ofstream &f, struct config *c, int min_input_size,
                 int max_input_size, int stepsize, int test_mode)
 {
@@ -446,9 +484,15 @@ void run_config(std::ofstream &f, struct config *c, int min_input_size,
     }
 }
 
+/*
+ * Runs through all the configurations as defined by the ranges of values
+ * provided.
+ */
 void run_tests(int T_exp_min, int T_exp_max, int T_blc_min, int T_blc_max,
                 int T_isc_min, int T_isc_max, int T_psc_min, int T_psc_max,
                 int min_input_size, int max_input_size, int stepsize,
+                int min_set_size, int max_set_size, int set_size_step,
+                int exp_cycles_min, int exp_cycles_max, int exp_cycles_step,
                 std::string fn, int test_mode)
 {
     std::string filename = "data/" + fn + ".csv";
@@ -457,6 +501,7 @@ void run_tests(int T_exp_min, int T_exp_max, int T_blc_min, int T_blc_max,
         std::cerr << "Failed to open file!\n";
         return;
     }
+
     config_data << "num_bits,private_set_digits,private_set_size,min_expected_cycles,T_exp,T_baseline_comp,T_input_size_comp,T_private_set_comp,ConfigTime,RequestSize,RequestTime,SolveTime,SubmitTime\n";
     /*
     *   struct config {
@@ -475,11 +520,17 @@ void run_tests(int T_exp_min, int T_exp_max, int T_blc_min, int T_blc_max,
         for (int bc = T_blc_min; bc <= T_blc_max; bc++) {
             for (int isc = T_isc_min; isc <= T_isc_max; isc++) {
                 for (int psc = T_psc_min; psc <= T_psc_max; psc++) {
-                    c.T_exp = t_exp;
-                    c.T_baseline_comp = bc;
-                    c.T_input_size_comp = isc;
-                    c.T_private_set_comp = psc;
-                    run_config(config_data, &c, min_input_size, max_input_size, stepsize, test_mode);
+                    for (int pss = min_set_size; pss <= max_set_size; pss += set_size_step) {
+                        for (int ec = exp_cycles_min; ec <= exp_cycles_max; ec += exp_cycles_step) {
+                            c.private_set_size = pss;
+                            c.min_expected_cycles = ec;
+                            c.T_exp = t_exp;
+                            c.T_baseline_comp = bc;
+                            c.T_input_size_comp = isc;
+                            c.T_private_set_comp = psc;
+                            run_config(config_data, &c, min_input_size, max_input_size, stepsize, test_mode);
+                        }
+                    }
                 }
             }
         }
@@ -493,8 +544,14 @@ void run_tests(int T_exp_min, int T_exp_max, int T_blc_min, int T_blc_max,
 /* Application entry */
 int SGX_CDECL main(int argc, char *argv[])
 {
-    if (argc < 14) {
-        printf("usage: ./app <min T_exp> <max T_exp> <min T_baseline_comp> <max T_basline_comp> <min T_input_size_comp> <max T_input_size_comp> <min T_private_set_comp> <max T_private_set_comp> <min InputSize> <max InputSize> <input size stepsize> <filename> <test_mode>\n");
+    /*
+     * test_mode == 0: no printing, cycles not recorded
+     * test_mode == 1: no printing, cycles for puzzle computation are recorded
+     * test_mode == 2: debug printing, cycles not recorded
+     * test_mode == 3: debug printing, cycles are recorded
+     */
+    if (argc < 20) {
+        printf("usage: ./app <min T_exp> <max T_exp> <min T_baseline_comp> <max T_basline_comp> <min T_input_size_comp> <max T_input_size_comp> <min T_private_set_comp> <max T_private_set_comp> <min InputSize> <max InputSize> <input size stepsize> <min_set_size> <max_set_size> <set_size_step> <min_exp_cycles> <max_exp_cycles> <exp_cycles_step> <filename> <test_mode>\n");
         return -1;
     }
     int init_ret = initialize_enclave();
@@ -515,7 +572,7 @@ int SGX_CDECL main(int argc, char *argv[])
     int64_t init_time = init_enclave();
     encl_data << init_time << ",";
 
-    run_tests(std::stoi(argv[1]),std::stoi(argv[2]),std::stoi(argv[3]),std::stoi(argv[4]),std::stoi(argv[5]),std::stoi(argv[6]),std::stoi(argv[7]),std::stoi(argv[8]),std::stoi(argv[9]),std::stoi(argv[10]),std::stoi(argv[11]), argv[12], std::stoi(argv[13]));
+    run_tests(std::stoi(argv[1]),std::stoi(argv[2]),std::stoi(argv[3]),std::stoi(argv[4]),std::stoi(argv[5]),std::stoi(argv[6]),std::stoi(argv[7]),std::stoi(argv[8]),std::stoi(argv[9]),std::stoi(argv[10]),std::stoi(argv[11]), std::stoi(argv[12]), std::stoi(argv[13]), std::stoi(argv[14]),std::stoi(argv[15]), std::stoi(argv[16]), std::stoi(argv[17]), argv[18], std::stoi(argv[19]));
 
     int64_t tdwn_time = teardown_enclave();
     encl_data << tdwn_time << std::endl;
