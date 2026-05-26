@@ -10,11 +10,11 @@ This repository contains the code produced as part of my bachelor's thesis, expl
 
 ### `TLP_VM_TEE/`
 
-A rate-limited server endpoint designed to run inside a VM-level TEE, targeting platforms like AMD SEV-SNP or Intel TDX. The focus here is on a realistic deployment scenario: the server enforces rate limits in a way that is integrity-protected by the confidential VM boundary, preventing a malicious host from bypassing or manipulating the limiting logic.
+A rate-limited server endpoint designed to run inside a VM-level TEE, targeting platforms like AMD SEV-SNP or Intel TDX. The focus here is on a proof of concept for TLP-based rate-limiting: the server enforces rate-limits in a way that is integrity-protected by the confidential VM boundary, preventing a malicious host from bypassing or manipulating the limiting logic.
 
 ### `TLP_INTEL_SGX/`
 
-An Intel SGX implementation built using the official SGX SDK. This one is less focused on production deployment and more on experimentation with security parameters -- tweaking TLP difficulty, measuring overhead inside an enclave, and stress-testing the construction under different configurations.
+An Intel SGX implementation built using the official SGX SDK. This one is focused on experimentation with security parameters in a realistic TEE setting: tweaking TLP difficulty, measuring overhead inside an enclave, and stress-testing the construction under different configurations.
 
 ## About
  
