@@ -23,7 +23,7 @@ def solve_vdf(x, T, N):
 
 
 def send_solve(url, elem, y):
-	result = requests.post(url + f"?element={elem}&y={y}")
+	result = requests.get(url + f"?element={elem}&y={y:x}")
 	return result.text
 
 
