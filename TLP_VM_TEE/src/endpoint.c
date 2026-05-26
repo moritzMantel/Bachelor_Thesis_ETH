@@ -30,11 +30,11 @@ static enum MHD_Result request_handler(void *cls,
   	(void) con_cls;  
 
 	/*
-	 * This handles a request to "http:<ip>/request_vdf?element=<elem>"
+	 * This handles a request to "http:<ip>/request_TLP?element=<elem>"
 	 * The element argument is extracted and a puzzle is generated and
 	 * returned in the response text.
 	 */
-	if (strncmp(url, "/request_vdf", strlen("/request_vdf")) == 0) {
+	if (strncmp(url, "/request_TLP", strlen("/request_TLP")) == 0) {
 		const char *elem_str = MHD_lookup_connection_value(connection, MHD_GET_ARGUMENT_KIND, "element");
 		unsigned long elem = 0;
 		if (!elem_str) {
@@ -91,7 +91,7 @@ static enum MHD_Result request_handler(void *cls,
 			snprintf(response_text, 2048, "Request:%s;Result:%s;", elem_str, service(elem));
 			ret_status = MHD_HTTP_OK;
 		} else {
-			snprintf(response_text, 2048, "VDF verification failed\n");
+			snprintf(response_text, 2048, "TLP verification failed\n");
 			ret_status = MHD_HTTP_FORBIDDEN;
 		}
 		free(s->y);

@@ -1,12 +1,12 @@
-# VDF Rate-Limiting - Intel SGX (SDK)
+# TLP Rate-Limiting - Intel SGX (SDK)
 
 ## Overview
 
 This implementation targets enclave-level TEEs using the Intel SGX SDK. The focus here is not on a deployable server but on evaluating how different parameter choices affect the construction's security and performance.
 
-The protected service is a Private Set Intersection (PSI): the enclave holds a private set, and clients can query which of their requested elements appear in it, but only after solving a VDF puzzle. The hardness of that puzzle is configurable in several dimensions and the app is built to sweep through combinations of those parameters and log results.
+The protected service is a Private Set Intersection (PSI): the enclave holds a private set, and clients can query which of their requested elements appear in it, but only after solving a Time-Lock Puzzle (TLP). The hardness of that puzzle is configurable in several dimensions and the app is built to sweep through combinations of those parameters and log results.
 
-The VDF construction is the same repeated-squaring time-lock puzzle, now implemented using mbedTLS inside the enclave.
+The TLP construction is the same repeated-squaring time-lock puzzle, now implemented using mbedTLS inside the enclave.
 
 ## Enclave (`Enclave/Enclave.cpp`)
 
@@ -22,7 +22,7 @@ All cryptographic state lives inside the enclave. The trusted code exposes the f
 
 ## Host App (`App/App.cpp`)
 
-The untrusted host manages the enclave lifecycle, drives the VDF solve, and handles all benchmarking. The main flow is:
+The untrusted host manages the enclave lifecycle, drives the TLP solve, and handles all benchmarking. The main flow is:
 
 1. `initialize_enclave` loads and initializes the SGX enclave
 2. `run_tests` sweeps through all parameter combinations, calling `run_config` for each

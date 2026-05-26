@@ -52,7 +52,7 @@
 # define ENCLAVE_FILENAME "enclave.signed.so"
 #endif
 
-struct vdf_puzzle {
+struct TLP_puzzle {
 	char x[1024];
 	char N[1024];
 	uint64_t T;

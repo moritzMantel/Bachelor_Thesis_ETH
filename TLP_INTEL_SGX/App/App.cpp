@@ -204,7 +204,7 @@ uint64_t get_cycles() {
 }
 
 /*
- * Computes the VDF given by x, N and T.
+ * Computes the TLP given by x, N and T.
  * Returns the solution y = x^2^T mod N.
  */
 void compute_puzzle_internal(char *y, char *x, char *N, uint64_t T)
@@ -236,7 +236,7 @@ void compute_puzzle_internal(char *y, char *x, char *N, uint64_t T)
 }
 
 /*
- * Computes the VDF given by x, N and T.
+ * Computes the TLP given by x, N and T.
  * Returns the solution y = x^2^T mod N.
  * Additionally records the cycles.
  */
@@ -383,7 +383,7 @@ int64_t request_puzzle(int global_eid, int *request_status, char*x,
 }
 
 /*
- * Performs the ecall to submit a request with the solution to the vdf.
+ * Performs the ecall to submit a request with the solution to the TLP.
  *
  * The resulting intersection is stored in intersection.
  * Returns the time the ecall took in ms.
@@ -438,7 +438,7 @@ make_request(std::vector<uint64_t> elements, int test_mode)
                             elements.size() * sizeof(uint64_t), elements.data(), sol, test_mode);
 
     switch (ret_val) {
-    case -1: { printf("VDF not accepted\n"); return {-1, -1, -1}; }
+    case -1: { printf("TLP not accepted\n"); return {-1, -1, -1}; }
     case -2: { printf("mpi operations failed\n"); return {-1, -1, -1}; }
     case -3: { printf("mpi hex string write failed\n"); return {-1, -1, -1}; }
     default: {

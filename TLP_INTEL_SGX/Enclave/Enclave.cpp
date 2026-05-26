@@ -189,7 +189,7 @@ int set_baseline(void)
 }
 
 /*
- * Initialises the cryptographic primitives necessary for the VDF.
+ * Initialises the cryptographic primitives necessary for the TLP.
 
  * Must be called before the first calls to 
  *      * 'ecall_request_puzzle'
@@ -404,7 +404,7 @@ uint64_t compute_T(int n)
 }
 
 /*
- * Returns a VDF puzzle.
+ * Returns a TLP puzzle.
  * The puzzle consists of three (large) integers x, N and T.
  * The solution of the puzzle is y = (x^2^T) mod N.
  *
@@ -525,7 +525,7 @@ int adj_exponent(mbedtls_mpi *final_exp, int n, uint64_t T_final)
 }
 
 /*
- * Verifies the VDF solution and checks membership of the requested element.
+ * Verifies the TLP solution and checks membership of the requested element.
  *
  * Params:
  *      * result:   intersection between requested elements and private set
