@@ -15,7 +15,6 @@
 #endif
 
 BIGNUM *N;
-BIGNUM *phi;
 BIGNUM *e;
 
 /*
@@ -29,7 +28,6 @@ BIGNUM *e;
 int rate_limiting_init()
 {
 	N = BN_new();
-	phi = BN_new();
 	e = BN_new();
 	BN_CTX *ctx = BN_CTX_new();
 
@@ -37,6 +35,7 @@ int rate_limiting_init()
 	BIGNUM *q = BN_new();
 	BIGNUM *bn_T = BN_new();
 	BIGNUM *two = BN_new();
+	BIGNUM *phi = BN_new();
 
 	BN_set_word(two, 2);
 	BN_set_word(bn_T, T_BASE);
@@ -60,6 +59,7 @@ int rate_limiting_init()
     	BN_free(q);
 	BN_free(two);
 	BN_free(bn_T);
+	BN_free(phi);
 	BN_CTX_free(ctx);
 
     	return 0;
@@ -73,7 +73,6 @@ int rate_limiting_init()
 int rate_limiting_clean_up()
 {
     	BN_free(N);
-    	BN_free(phi);
 	BN_free(e);
 
 	return 0;
@@ -135,8 +134,9 @@ struct puzzle *generate_puzzle(unsigned long requested_element)
  *	 * p->element			the requested element
  *			
  * Returns:
- *	* True				if the solution is correct
- *	* False				if the solution is incorrect
+ *	* 1				if the solution is correct
+ *	* 0				if the solution is incorrect
+ *	* -1				if the input is too long
  */
 int verify_puzzle(struct request_solve *p)
 {
