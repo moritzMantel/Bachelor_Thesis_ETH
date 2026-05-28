@@ -93,6 +93,13 @@ size_t get_max_hexlen()
  * The base x is chosen to be completely deterministic from the requested
  * element, namely x = requested_element % N. This avoids having to store any
  * "per-request" state.
+ *
+ * !IMPORTANT!
+ * The returned struct must be freed by the caller using:
+ *	OPENSSL_free(res->N);
+ *	OPENSSL_free(res->x);
+ *	free(res->T);
+ *	free(res);
  * 
  * Params:
  * 	* requested_element:	elem for which the service is requested
