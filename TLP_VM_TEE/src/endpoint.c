@@ -2,6 +2,7 @@
 #include "../include/service.h"
 #include <microhttpd.h>
 #include <stdio.h>
+#include <openssl/bn.h>
 
 #define NUM_THREADS 4
 #define PORT 8080
@@ -112,9 +113,9 @@ respond:
     	ret = MHD_queue_response(connection, ret_status, response);
     	MHD_destroy_response(response);
 	if (p) {
-		free(p->N);
+		OPENSSL_free(p->N);
+		OPENSSL_free(p->x);
 		free(p->T);
-		free(p->x);
 		free(p);
 	}
     	return ret;
