@@ -30,6 +30,7 @@ int rate_limiting_init()
 	N = BN_new();
 	e = BN_new();
 	BN_CTX *ctx = BN_CTX_new();
+	BN_MONT_CTX *mont_ctx = BN_MONT_CTX_new();
 
 	BIGNUM *p = BN_new();
 	BIGNUM *q = BN_new();
@@ -53,7 +54,7 @@ int rate_limiting_init()
     	BN_sub_word(p, 1);
     	BN_sub_word(q, 1);
     	BN_mul(phi, p, q, ctx);
-	BN_mod_exp(e, two, bn_T, phi, ctx);
+	BN_mod_exp_mont_consttime(e, two, bn_T, phi, ctx, mont_ctx);
 
     	BN_free(p);
     	BN_free(q);
@@ -61,6 +62,7 @@ int rate_limiting_init()
 	BN_free(bn_T);
 	BN_free(phi);
 	BN_CTX_free(ctx);
+	BN_MONT_CTX_free(mont_ctx);
 
     	return 0;
 }
@@ -156,6 +158,7 @@ int verify_puzzle(struct request_solve *p)
 		return -1;
 
 	BN_CTX *ctx = BN_CTX_new();
+	BN_MONT_CTX *mont_ctx = BN_MONT_CTX_new();
 	BIGNUM *X = BN_new();
 	BIGNUM *Y = NULL;
 	BIGNUM *Y_true = BN_new();
@@ -165,7 +168,7 @@ int verify_puzzle(struct request_solve *p)
 
 	BN_hex2bn(&Y, p->y);
 
-	BN_mod_exp(Y_true, X, e, N, ctx);
+	BN_mod_exp_mont_consttime(Y_true, X, e, N, ctx, mont_ctx);
 
 	int res = BN_cmp(Y, Y_true) == 0;
 
@@ -173,6 +176,7 @@ int verify_puzzle(struct request_solve *p)
 	BN_free(Y);
 	BN_free(Y_true);
 	BN_CTX_free(ctx);
+	BN_MONT_CTX_free(mont_ctx);
 
 	return res;
 }
