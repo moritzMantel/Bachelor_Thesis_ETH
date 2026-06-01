@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include "../include/rate_limiting.h"
 #include "../include/service.h"
+#include <openssl/bn.h>
 
 size_t buf_size(void);
 
@@ -32,7 +33,12 @@ void request(char *ret_buf, unsigned long e)
 {
 	struct puzzle *p = generate_puzzle(e);
 	size_t buf_s = buf_size();
-	snprintf(ret_buf, buf_s, "{\"x\":\"%s\",\"T\":\"%s\",\"N\":\"%s\"}", p->x, p->T, p->N);}
+	snprintf(ret_buf, buf_s, "{\"x\":\"%s\",\"T\":\"%s\",\"N\":\"%s\"}", p->x, p->T, p->N);
+	OPENSSL_free(p->N);
+	OPENSSL_free(p->x);
+	free(p->T);
+	free(p);
+}
 
 /*
  * Submit a request for an element including the solution.
@@ -44,7 +50,7 @@ void request(char *ret_buf, unsigned long e)
  *			- "NO MEMORY" if malloc fails
  *			- "NOT ACCEPTED" if Y is not a valid solution
  *	* e:		requested element
- *	* Y:		solution y = e^2^T in hex
+ *	* Y:		solution y = e^2^T in UPPER CASE hex
  */
 void request_sol(char *ret_buf, unsigned long e, char *Y)
 {
@@ -59,10 +65,10 @@ void request_sol(char *ret_buf, unsigned long e, char *Y)
 	int accepted = verify_puzzle(s);
 	free(s);
 
-	if (accepted) {
+	if (accepted == 1) {
 		snprintf(ret_buf, 2, "%s", service(e));
 	} else {
-		sprintf(ret_buf, "NOT ACCEPTED\n");
+		sprintf(ret_buf, "NOT ACCEPTED: %d\n", accepted);
 	}
 }
 

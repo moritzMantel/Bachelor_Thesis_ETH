@@ -22,7 +22,12 @@ BUILD_DIR = build
 
 LIB_SRC    = $(SRC_DIR)/main.c $(SRC_DIR)/rate_limiting.c $(SRC_DIR)/service.c
 LIB_OBJ    = $(LIB_SRC:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
-LIB_TARGET = $(BUILD_DIR)/rate_limiter.so
+
+ifeq ($(UNAME), Darwin)
+	LIB_TARGET = $(BUILD_DIR)/rate_limiter.dylib
+else
+	LIB_TARGET = $(BUILD_DIR)/rate_limiter.so
+endif
 
 SERVER_SRC    = $(SRC_DIR)/endpoint.c $(SRC_DIR)/rate_limiting.c $(SRC_DIR)/service.c
 SERVER_OBJ    = $(SERVER_SRC:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)

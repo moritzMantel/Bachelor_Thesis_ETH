@@ -2,7 +2,9 @@
 #include "../include/rate_limiting.h"
 #include <stdio.h>
 #include <openssl/bn.h>
-
+#include <openssl/crypto.h>
+#include <openssl/err.h>
+#include <ctype.h>
 
 
 #ifdef test_simple
@@ -29,8 +31,13 @@ int rate_limiting_init()
 {
 	N = BN_new();
 	e = BN_new();
+	/*
+	 * marking e as constant time means OpenSSL automatically chooses
+	 * implementations that do not leak timing information about it where
+	 * possible.
+	 */
+	BN_set_flags(e, BN_FLG_CONSTTIME);
 	BN_CTX *ctx = BN_CTX_new();
-	BN_MONT_CTX *mont_ctx = BN_MONT_CTX_new();
 
 	BIGNUM *p = BN_new();
 	BIGNUM *q = BN_new();
@@ -54,7 +61,11 @@ int rate_limiting_init()
     	BN_sub_word(p, 1);
     	BN_sub_word(q, 1);
     	BN_mul(phi, p, q, ctx);
-	BN_mod_exp_mont_consttime(e, two, bn_T, phi, ctx, mont_ctx);
+
+	/*
+	 * This only leaks timing information about bn_T, which is public.
+	 */
+	BN_mod_exp(e, two, bn_T, phi, ctx);
 
     	BN_free(p);
     	BN_free(q);
@@ -62,7 +73,6 @@ int rate_limiting_init()
 	BN_free(bn_T);
 	BN_free(phi);
 	BN_CTX_free(ctx);
-	BN_MONT_CTX_free(mont_ctx);
 
     	return 0;
 }
@@ -139,26 +149,33 @@ struct puzzle *generate_puzzle(unsigned long requested_element)
  *
  * Params:
  *	* p (struct request_solve):
- *	 * p->y				solution element^2^T
+ *	 * p->y				solution element^2^T in UPPER CASE hex
  *	 * p->element			the requested element
  *			
  * Returns:
  *	* 1				if the solution is correct
  *	* 0				if the solution is incorrect
- *	* -1				if the input is too long
+ *	* -1				if the input is NULL or too long
  */
 int verify_puzzle(struct request_solve *p)
 {
+	size_t max = get_max_hexlen();
+	if (!p->y)
+		return -1;
+	;
+	/* 
+	 * strip any potential leading hex identifiers (0x or 0X):
+	 */
+	if (strnlen(p->y, max+1) >= 2 && p->y[0] == '0' && (p->y[1] == 'x' || p->y[1] == 'X'))
+		p->y += 2;
 	/*
 	 * Reject any solution that is longer than the maximum hex
-	 * representation of a number mod N.
+	 * representation of a number mod N:
 	 */
-	size_t max = get_max_hexlen();
-	if (!p->y || strnlen(p->y, max + 1) > max)
+	if (strnlen(p->y, max+1) > max)
 		return -1;
 
 	BN_CTX *ctx = BN_CTX_new();
-	BN_MONT_CTX *mont_ctx = BN_MONT_CTX_new();
 	BIGNUM *X = BN_new();
 	BIGNUM *Y = NULL;
 	BIGNUM *Y_true = BN_new();
@@ -168,15 +185,28 @@ int verify_puzzle(struct request_solve *p)
 
 	BN_hex2bn(&Y, p->y);
 
-	BN_mod_exp_mont_consttime(Y_true, X, e, N, ctx, mont_ctx);
+	/* 
+	 * No leaks on e, since it is marked as constant time.
+	 */
+	BN_mod_exp_mont_consttime(Y_true, X, e, N, ctx, NULL);
 
-	int res = BN_cmp(Y, Y_true) == 0;
+	/*
+	 * Comparing the solutions must be done in constant time, so as not
+	 * to leak any information through timing side channels.
+	 */
+	size_t num_bytes = BN_num_bytes(N);
+	unsigned char Y_buf[num_bytes];
+	unsigned char Y_true_buf[num_bytes];
+
+	BN_bn2binpad(Y, Y_buf, num_bytes);
+	BN_bn2binpad(Y_true, Y_true_buf, num_bytes);
+
+	int comp = CRYPTO_memcmp(Y_buf, Y_true_buf, num_bytes);
 
 	BN_free(X);
 	BN_free(Y);
 	BN_free(Y_true);
 	BN_CTX_free(ctx);
-	BN_MONT_CTX_free(mont_ctx);
 
-	return res;
+	return (comp == 0)? 1: 0;
 }

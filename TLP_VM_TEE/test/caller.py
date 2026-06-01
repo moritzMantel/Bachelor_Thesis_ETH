@@ -7,7 +7,7 @@ import json
 #
 # we first need to load the library and define they c types
 #
-lib = ctypes.CDLL("/Users/moritzmantel/00_code/00_ethz/06_FS26/00_BT/BT-Implementation/TLP_VM_TEE/build/rate_limiter.so")
+lib = ctypes.CDLL("/Users/moritzmantel/00_code/00_ethz/06_FS26/00_BT/BT-Implementation/TLP_VM_TEE/build/rate_limiter.dylib")
 
 lib.request.argtypes     = [ctypes.c_char_p, ctypes.c_ulong]
 lib.request.restype      = None
@@ -94,12 +94,12 @@ if __name__ == "__main__":
     p = request(e)
     print(f"Puzzle:\n{p}")
     y = solve(p)
-    print(f"Solution: {hex(y)}")
-    res = submit(e, hex(y))
+    print(f"Solution: {hex(y).upper()}")
+    res = submit(e, hex(y).upper())
     if res == "1":
-        print(f"{e} is in S")
+        print(f"{e} is in S!")
     elif res == "0":
-        print(f"{e} is not in S")
+        print(f"{e} is not in S!")
     else:
         print(res)
     teardown_lib()
