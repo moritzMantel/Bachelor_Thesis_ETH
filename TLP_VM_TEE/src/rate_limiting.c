@@ -118,7 +118,7 @@ size_t get_max_hexlen()
  *
  * Returns:
  *	* res (struct puzzle):
- *	 * res->N		the modulos
+ *	 * res->N		the modulus
  *	 * res->x		the base
  *	 * res->T		the number of squarings
  */

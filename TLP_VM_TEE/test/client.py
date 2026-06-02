@@ -40,7 +40,7 @@ def solve_TLP(x, T, N):
 	Params:
 		* x: 			the base
 		* T:			the number of squarings
-		* N: 			the modulos
+		* N: 			the modulus
 		
 	Returns:
 		* y = x^2^T mod N
