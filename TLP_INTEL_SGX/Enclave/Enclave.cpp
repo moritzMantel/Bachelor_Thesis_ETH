@@ -80,10 +80,13 @@ int ecall_init(void)
 {
     int ret_code;
     size_t written, squarings;
+    size_t written, squarings;
 
     mbedtls_mpi p;
     mbedtls_mpi q;
     mbedtls_mpi T_mpi;
+
+    initialize_private_set();
 
     initialize_private_set();
 
@@ -100,10 +103,12 @@ int ecall_init(void)
     mbedtls_mpi_init(&p);
     mbedtls_mpi_init(&q);
     if (mbedtls_mpi_gen_prime(&p, config_get_num_bits(), 0, mbedtls_ctr_drbg_random,
+    if (mbedtls_mpi_gen_prime(&p, config_get_num_bits(), 0, mbedtls_ctr_drbg_random,
                             &ctr_drbg) != 0) {
         ret_code = -2;
         goto exit_2;
     }
+    if (mbedtls_mpi_gen_prime(&q, config_get_num_bits(), 0, mbedtls_ctr_drbg_random, 
     if (mbedtls_mpi_gen_prime(&q, config_get_num_bits(), 0, mbedtls_ctr_drbg_random, 
                             &ctr_drbg) != 0) {
         ret_code = -2;
@@ -136,11 +141,30 @@ int ecall_init(void)
         goto exit_3;
     }
 
+    squarings = config_get_T_exponent();
+
+    if (!squarings) {
+        ret_code = -3;
+        goto exit_3;
+    }
+
     mbedtls_mpi_init(&exponent);
 
     if (mbedtls_mpi_lset(&exponent, 2) != 0) {
+    if (mbedtls_mpi_lset(&exponent, 2) != 0) {
         ret_code = -4;
         goto exit_4;
+    }
+
+    for (uint64_t i = 0; i < squarings; i++) {
+        if (mbedtls_mpi_mul_mpi(&exponent, &exponent, &exponent) != 0) {
+            ret_code = -4;
+            goto exit_4;
+        }
+        if (mbedtls_mpi_mod_mpi(&exponent, &exponent, &phi) != 0) {
+            ret_code = -4;
+            goto exit_4;
+        }
     }
 
     for (uint64_t i = 0; i < squarings; i++) {
@@ -276,6 +300,7 @@ int ecall_request_puzzle(char *x_buf, char *N_buf, uint64_t *T, int s, uint64_t 
     }
 
     *T = config_compute_T(n);
+    *T = config_compute_T(n);
 
     memcpy(N_buf, N_str, n_len);
     ret_code = 0;
@@ -320,6 +345,7 @@ int ecall_submit_solution(uint64_t *result, int s, uint64_t *elems, char *y_str)
     generate_base(&x, n, elems);
 
     config_adj_exponent(&final_exp, n);
+    config_adj_exponent(&final_exp, n);
 
     if (mbedtls_mpi_mod_mpi(&x, &x, &N) != 0) {
         ret = -2;
@@ -336,6 +362,8 @@ int ecall_submit_solution(uint64_t *result, int s, uint64_t *elems, char *y_str)
 
     size_t written;
     mbedtls_mpi_write_string(&x, 16, expected, 1025, &written);
+
+    // printf("Solution: %s\n", expected);
 
     // printf("Solution: %s\n", expected);
 
