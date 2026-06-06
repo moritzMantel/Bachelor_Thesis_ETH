@@ -34,6 +34,44 @@
 
 #include <stdlib.h>
 #include <assert.h>
+#include <stdint.h>
+#include <unordered_set>
+#include <vector>
+#include "mbedtls/bignum.h"
+
+#define MPI_STR_SIZE 1024
+#define CYCLES_PER_SQUARING 300000
+
+#define debug_build
+
+/* 
+ * Shared crypto state.
+ * Defined in Enclave.cpp 
+ */
+extern mbedtls_mpi N;
+extern mbedtls_mpi phi;
+extern mbedtls_mpi exponent;
+
+/* 
+ * Enclave_set.cpp 
+ */
+extern std::unordered_set<uint64_t> private_set;
+std::vector<uint64_t> compute_intersection(int n, uint64_t *elements);
+
+/* 
+ * Enclave_eval.cpp 
+ */
+uint64_t config_get_num_bits(void);
+uint64_t config_get_T_exponent(void);
+uint64_t config_compute_T(int n);
+int config_adj_exponent(mbedtls_mpi *final_exp, int n);
+void initialize_private_set(void);
+
+/* 
+ * Enclave.cpp
+ */
+void generate_base(mbedtls_mpi *x, int n, uint64_t *elements);
+
 
 #if defined(__cplusplus)
 extern "C" {

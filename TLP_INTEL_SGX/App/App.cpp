@@ -321,7 +321,9 @@ int64_t set_config(struct config *c)
     int ret_status;
     auto start = std::chrono::high_resolution_clock::now();
     
+    ecall_teardown(global_eid);
     ecall_set_config(global_eid, &ret_status, c);
+    ecall_init(global_eid, &ret_status);
 
     auto end = std::chrono::high_resolution_clock::now();
 
@@ -347,7 +349,7 @@ int64_t compute_puzzle(char *y, char *x, char *N, uint64_t T, int test_mode)
     auto start = std::chrono::high_resolution_clock::now();
 
     if (test_mode % 2 == 1) {
-        std::ofstream f("data/cycles.csv");
+        std::ofstream f("evaluation/data/cycles.csv");
         if (!f)
             printf("file open failed\n");
         f << "T,Iteration,Cycles" << std::endl;
@@ -434,6 +436,8 @@ make_request(std::vector<uint64_t> elements, int test_mode)
     int ret_val;
     uint64_t intersection[elements.size()];
 
+    // printf("Submitted: %s\n", sol);
+
     int64_t submit_time = submit_solution(global_eid, &ret_val, intersection,
                             elements.size() * sizeof(uint64_t), elements.data(), sol, test_mode);
 
@@ -495,7 +499,7 @@ void run_tests(int T_exp_min, int T_exp_max, int T_blc_min, int T_blc_max,
                 int exp_cycles_min, int exp_cycles_max, int exp_cycles_step,
                 std::string fn, int test_mode)
 {
-    std::string filename = "data/" + fn + ".csv";
+    std::string filename = "evaluation/data/" + fn + ".csv";
     std::ofstream config_data(filename);
     if (!config_data.is_open()) {
         std::cerr << "Failed to open file!\n";
@@ -562,7 +566,7 @@ int SGX_CDECL main(int argc, char *argv[])
         return -1; 
     }
 
-    std::ofstream encl_data("data/encl_data.csv");
+    std::ofstream encl_data("evaluation/data/encl_data.csv");
     if (!encl_data.is_open()) {
         std::cerr << "Failed to open file\n";
         return -1;

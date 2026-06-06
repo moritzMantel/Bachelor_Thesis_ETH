@@ -126,7 +126,7 @@ else
 endif
 Crypto_Library_Name := sgx_tcrypto
 
-Enclave_Cpp_Files := Enclave/Enclave.cpp
+Enclave_Cpp_Files := Enclave/Enclave.cpp Enclave/Enclave_config.cpp Enclave/Enclave_set.cpp
 Enclave_Include_Paths := -IEnclave -I$(SGX_SDK)/include -I$(SGX_SDK)/include/libcxx -I$(SGX_SDK)/include/tlibc
 
 Enclave_C_Flags := -nostdinc -fvisibility=hidden -fpie -fstack-protector $(Enclave_Include_Paths) -DPB_ENABLE_SGX
