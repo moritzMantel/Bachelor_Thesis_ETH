@@ -167,6 +167,7 @@ int adj_exponent_set(mbedtls_mpi *final_exp, uint64_t T_final)
                 return -1;
             }
         }
+        break;
     }
     default: {
         return 0;

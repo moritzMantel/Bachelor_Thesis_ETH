@@ -229,7 +229,9 @@ void generate_base(mbedtls_mpi *x, int n, uint64_t *elements)
         printf("Error in reading hash into mpi\n");
 
     mbedtls_mpi_gcd(&gcd, x, &N);
-
+    /*
+     * Probability in the order of 2^{-1024}
+     */
     if (mbedtls_mpi_cmp_mpi(&one, &gcd) != 0) 
         printf("GCD of x and N not 1!\n");
 }
@@ -287,6 +289,18 @@ exit:
 }
 
 /*
+ * Constant time comparison of two buffers.
+ */
+int const_time_memcmp(unsigned char *a, unsigned char *b, size_t len)
+{
+    unsigned char diff = 0;
+    for (size_t i = 0; i < len; i++) {
+        diff |= a[i] ^ b[i];
+    }
+    return diff;
+}
+
+/*
  * Verifies the TLP solution and checks membership of the requested element.
  *
  * Params:
@@ -310,9 +324,11 @@ int ecall_submit_solution(uint64_t *result, int s, uint64_t *elems, char *y_str)
     mbedtls_mpi x;
     mbedtls_mpi y;
     mbedtls_mpi final_exp;
-    char expected[1024];
+    mbedtls_mpi RR;
     int ret;
     int n = s / sizeof(uint64_t);
+    unsigned char y_buf[MPI_STR_SIZE];
+    unsigned char x_buf[MPI_STR_SIZE];
 
     mbedtls_mpi_init(&x);
     mbedtls_mpi_init(&y);
@@ -326,26 +342,35 @@ int ecall_submit_solution(uint64_t *result, int s, uint64_t *elems, char *y_str)
         ret = -2;
         goto exit;
     }
-    if (mbedtls_mpi_exp_mod(&x, &x, &final_exp, &N, NULL) != 0) {
+
+    mbedtls_mpi_init(&RR);
+    if (mbedtls_mpi_exp_mod(&x, &x, &final_exp, &N, &RR) != 0) {
         ret = -2;
         goto exit;
     }
+    mbedtls_mpi_free(&RR);
+
     if (mbedtls_mpi_read_string(&y, 16, y_str) != 0) {
         ret = -3;
         goto exit;
     }
 
-    size_t written;
-    mbedtls_mpi_write_string(&x, 16, expected, 1025, &written);
+    /*
+     * Constant time comparison: write the mpi to buffers and compare bytes
+     * using constant time memory comparison.
+     */
+    if (mbedtls_mpi_write_binary(&x, x_buf, MPI_STR_SIZE) != 0) {
+        ret = -2;
+        goto exit;
+    }
+    if (mbedtls_mpi_write_binary(&y, y_buf, MPI_STR_SIZE) != 0) {
+        ret = -2;
+        goto exit;
+    }
 
-    // printf("Solution: %s\n", expected);
-
-    if (mbedtls_mpi_cmp_mpi(&x, &y) != 0) {
+    if (const_time_memcmp(x_buf, y_buf, MPI_STR_SIZE) != 0) {
         ret = -1;
     } else {
-        // cost for brute force
-        // how to choose T w.r.t. private set properties
-
         std::vector<uint64_t> intersection = compute_intersection(n, elems);
         for (int i = 0; i < intersection.size(); i++) {
             result[i] = intersection[i];
