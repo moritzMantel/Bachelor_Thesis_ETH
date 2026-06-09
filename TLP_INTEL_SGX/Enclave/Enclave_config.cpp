@@ -1,6 +1,10 @@
 #include "Enclave.h"
 #include "Enclave_t.h"
 
+uint64_t compute_T_set(void);
+int adj_exponent_set(mbedtls_mpi *final_exp, uint64_t T_final);
+
+
 /*
  * struct config {
  *      uint64_t num_bits:              
@@ -27,9 +31,12 @@ struct config conf = {
     0       // 0 for constant T
             // 1 to sat. E_cycles[hit]
 };
-
 uint64_t T_base;
 
+
+/*
+ * Getters used by rate-limiting side.
+ */
 uint64_t config_get_T_exponent(void)
 {
     switch(conf.T_baseline_comp) {
@@ -54,74 +61,10 @@ uint64_t config_get_T_exponent(void)
     }
     }
 }
-
-/*
- * If debug_build is enabled, this allows for overwriting the default conf.
- * This is used to evaluate parameters.
- * 
- * Returns:
- *      * 0         if successful
- *      * -1        if parameters not allowed
- *      * -2        if not permitted (eg. not a debug build)
- */
-int ecall_set_config(struct config *c)
+uint64_t config_get_num_bits()
 {
-#ifdef debug_build
-
-    if (c->num_bits <= 256 || c->num_bits > 4096)
-        return -1;
-    if (c->private_set_digits < 1 || c->private_set_digits > 20)
-        return -1;
-    if (c->private_set_size < 1 || c->private_set_size > 1000000000
-                || c->private_set_size > pow(10, c->private_set_digits))
-        return -1;
-    if (c->T_exp < 1 || c->T_exp > 30)
-        return -1;
-    if (c->T_baseline_comp < 0 || c->T_baseline_comp > 2)
-        return -1;
-    if (c->T_input_size_comp < 0 || c->T_input_size_comp > 2)
-        return -1;
-    if (c->T_private_set_comp < 0 || c->T_private_set_comp > 2)
-        return -1;
-    
-    conf = *c;
-
-    T_base = (uint64_t)1 << config_get_T_exponent();
-    initialize_private_set();
-    return 0;
-#else
-    return -2;
-#endif
+    return conf.num_bits;
 }
-
-uint64_t compute_T_set()
-{
-    switch(conf.T_private_set_comp) {
-    case 0: {
-        /*
-         * This does not modify T w.r.t the current state of the private set.
-         */
-        return T_base;
-    }
-    case 1: {
-        /*
-         * This corresponds to the idea that the expected number of cycles to
-         * "find" an element in the private set should take 
-         * conf.min_expected_cycles many cycles
-         * (assuming random probing and uniform distribution of private set).
-         * For that reason, T_base is scaled according to the probability to
-         * randomly "find" an element.
-         * 
-         * This assumes that option 1 is set for baseline computation.
-         */
-        return (uint64_t) ((T_base * private_set.size()) / pow(10, conf.private_set_digits));
-    }
-    default: {
-        return T_base;
-    }
-    }
-}
-
 uint64_t config_compute_T(int n)
 {
     switch(conf.T_input_size_comp) {
@@ -140,41 +83,6 @@ uint64_t config_compute_T(int n)
     }
     }
 }
-
-int adj_exponent_set(mbedtls_mpi *final_exp, uint64_t T_final)
-{
-    switch(conf.T_private_set_comp) {
-    case 0: {
-        /*
-         * This does not modify T w.r.t the current state of the private set.
-         */
-        return mbedtls_mpi_copy(final_exp, &exponent);
-    }
-    case 1: {
-        /*
-         * Since scaling of the exponent mod phi only works for positive ints,
-         * in this case, we have to completely recompute the exponent.
-         */
-        if (mbedtls_mpi_lset(final_exp, 1) != 0) {
-            return -1;
-        }
-
-        for (uint64_t i = 0; i < T_final; i++) { 
-            if (mbedtls_mpi_mul_int(final_exp, final_exp, 2) != 0) {
-                return -1;
-            }
-            if (mbedtls_mpi_mod_mpi(final_exp, final_exp, &phi) != 0) {
-                return -1;
-            }
-        }
-        break;
-    }
-    default: {
-        return 0;
-    }
-    }
-}
-
 int config_adj_exponent(mbedtls_mpi *final_exp, int n)
 {
     uint64_t T_final = config_compute_T(n);
@@ -211,12 +119,6 @@ int config_adj_exponent(mbedtls_mpi *final_exp, int n)
     }
     }
 }
-
-uint64_t config_get_num_bits()
-{
-    return conf.num_bits;
-}
-
 void initialize_private_set(void)
 {
     private_set.clear();
@@ -224,5 +126,102 @@ void initialize_private_set(void)
 
     for (int i = 0; i < conf.private_set_size; i++) {
         private_set.insert(i * stepsize);
+    }
+}
+
+/*
+ * This allows for overwriting the default conf.
+ * This is used to evaluate parameters.
+ * 
+ * Returns:
+ *      * 0         if successful
+ *      * -1        if parameters not allowed
+ */
+int ecall_set_config(struct config *c)
+{
+    if (c->num_bits <= 256 || c->num_bits > 4096)
+        return -1;
+    if (c->private_set_digits < 1 || c->private_set_digits > 20)
+        return -1;
+    if (c->private_set_size < 1 || c->private_set_size > 1000000000
+                || c->private_set_size > pow(10, c->private_set_digits))
+        return -1;
+    if (c->T_exp < 1 || c->T_exp > 30)
+        return -1;
+    if (c->T_baseline_comp < 0 || c->T_baseline_comp > 2)
+        return -1;
+    if (c->T_input_size_comp < 0 || c->T_input_size_comp > 2)
+        return -1;
+    if (c->T_private_set_comp < 0 || c->T_private_set_comp > 2)
+        return -1;
+    
+    conf = *c;
+
+    T_base = (uint64_t)1 << config_get_T_exponent();
+    initialize_private_set();
+    return 0;
+}
+
+/*
+ * Helpers
+ */
+uint64_t compute_T_set(void)
+{
+    switch(conf.T_private_set_comp) {
+    case 0: {
+        /*
+         * This does not modify T w.r.t the current state of the private set.
+         */
+        return T_base;
+    }
+    case 1: {
+        /*
+         * This corresponds to the idea that the expected number of cycles to
+         * "find" an element in the private set should take 
+         * conf.min_expected_cycles many cycles
+         * (assuming random probing and uniform distribution of private set).
+         * For that reason, T_base is scaled according to the probability to
+         * randomly "find" an element.
+         * 
+         * This assumes that option 1 is set for baseline computation.
+         */
+        return (uint64_t) ((T_base * private_set.size()) / pow(10, conf.private_set_digits));
+    }
+    default: {
+        return T_base;
+    }
+    }
+}
+int adj_exponent_set(mbedtls_mpi *final_exp, uint64_t T_final)
+{
+    switch(conf.T_private_set_comp) {
+    case 0: {
+        /*
+         * This does not modify T w.r.t the current state of the private set.
+         */
+        return mbedtls_mpi_copy(final_exp, &exponent);
+    }
+    case 1: {
+        /*
+         * Since scaling of the exponent mod phi only works for positive ints,
+         * in this case, we have to completely recompute the exponent.
+         */
+        if (mbedtls_mpi_lset(final_exp, 1) != 0) {
+            return -1;
+        }
+
+        for (uint64_t i = 0; i < T_final; i++) { 
+            if (mbedtls_mpi_mul_int(final_exp, final_exp, 2) != 0) {
+                return -1;
+            }
+            if (mbedtls_mpi_mod_mpi(final_exp, final_exp, &phi) != 0) {
+                return -1;
+            }
+        }
+        break;
+    }
+    default: {
+        return 0;
+    }
     }
 }

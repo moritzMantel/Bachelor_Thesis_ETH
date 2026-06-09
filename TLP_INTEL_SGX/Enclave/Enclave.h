@@ -42,8 +42,6 @@
 #define MPI_STR_SIZE 1024
 #define CYCLES_PER_SQUARING 300000
 
-#define debug_build
-
 /* 
  * Shared crypto state.
  * Defined in Enclave.cpp 
