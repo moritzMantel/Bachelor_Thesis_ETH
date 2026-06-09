@@ -195,6 +195,14 @@ int run_request(std::vector<uint64_t> &elements, int log,
     }
     int64_t req_ms = std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count();
 
+    if (log == 4) {
+        std::cout << "Puzzle:" << std::endl
+                << "x: " << x << std::endl
+                << "T: " << T << std::endl
+                << "N: " << N << std::endl
+                << std::endl;
+    }
+
     /*
      * 2. solve the puzzle
      */
@@ -241,7 +249,7 @@ int run_request(std::vector<uint64_t> &elements, int log,
                req_ms, solve_ms, submit_ms);
     }
 
-    if (log >= 2) {
+    if (log >= 2 && log != 4) {
         bool write_header = !std::ifstream(log_file).good();
         std::ofstream f(log_file, std::ios::app);
         if (!f) { printf("failed to open log file\n"); return -4; }
@@ -304,7 +312,7 @@ int SGX_CDECL main(int argc, char *argv[])
      */
     int log = std::stoi(argv[idx++]);
     std::string log_file = "";
-    if (log >= 2) {
+    if (log >= 2 && log != 4) {
         if (argc < idx + 1) { printf("expected log filename\n"); return -1; }
         log_file = "evaluation/data/" + std::string(argv[idx++]) + ".csv";
     }
@@ -374,7 +382,7 @@ int SGX_CDECL main(int argc, char *argv[])
     /*
      * Log setup / teardown stats
      */
-    if (log >= 2) {
+    if (log >= 2 && log != 4) {
         bool write_encl_header = !std::ifstream("evaluation/data/encl_data.csv").good();
         std::ofstream encl_data("evaluation/data/encl_data.csv", std::ios::app);
         if (write_encl_header)
