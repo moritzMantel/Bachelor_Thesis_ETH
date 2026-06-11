@@ -77,21 +77,21 @@ def gather_data():
     os.makedirs(FIG_DIR, exist_ok=True)
 
     # -- experiment 1: vary T_exp, single element request --
-    # out = f"{DATA_DIR}/vary_T_exp.csv"
-    # if os.path.exists(out):
-    #     os.remove(out)
-    # for T_exp in range(1, 21):
-    #     run_once(
-    #         elements=[42],
-    #         log=2,
-    #         log_file="vary_T_exp",
-    #         T_exp=T_exp,
-    #         T_baseline_comp=0,
-    #         T_input_size_comp=0,
-    #         T_private_set_comp=0,
-    #         private_set_size=100,
-    #     )
-    #     print(f"vary_T_exp: T_exp={T_exp} done")
+    out = f"{DATA_DIR}/vary_T_exp.csv"
+    if os.path.exists(out):
+        os.remove(out)
+    for T_exp in range(1, 25):
+        run_once(
+            elements=[42],
+            log=2,
+            log_file="vary_T_exp",
+            T_exp=T_exp,
+            T_baseline_comp=0,
+            T_input_size_comp=0,
+            T_private_set_comp=0,
+            private_set_size=100,
+        )
+        print(f"vary_T_exp: T_exp={T_exp} done")
 
     # -- experiment 2: vary input size, constant T vs linear T --
     # out = f"{DATA_DIR}/vary_input_size.csv"
@@ -128,12 +128,12 @@ def gather_data():
     #         private_set_size=100,
     #     )
     # print("cycles done")
-    with open(f"{DATA_DIR}/cycles_py.csv", "w", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow(["T","Time","Cycles"])
-        for t in range(5,20):
-            cycles, ms = measure(2**t)
-            writer.writerow([(2**t), ms, cycles])
+    # with open(f"{DATA_DIR}/cycles_py.csv", "w", newline="") as f:
+    #     writer = csv.writer(f)
+    #     writer.writerow(["T","Time","Cycles"])
+    #     for t in range(5,20):
+    #         cycles, ms = measure(2**t)
+    #         writer.writerow([(2**t), ms, cycles])
 
 #     out = f"{DATA_DIR}/vary_exp_cycles.csv"
 #     if os.path.exists(out):
@@ -604,10 +604,10 @@ def plot_encl_data(df, y_cols, title, ylabel, xlabel, logy, save_path=None):
     plt.close(fig)
 
 if __name__ == "__main__":
-    gather_data()
+    # gather_data()
 
-#     df_T = pd.read_csv(f"{DATA_DIR}/vary_T_exp.csv")
-#     df_T.columns = df_T.columns.str.strip()
+    df_T = pd.read_csv(f"{DATA_DIR}/vary_T_exp.csv")
+    df_T.columns = df_T.columns.str.strip()
 # 
 #     plot_T(
 #         df_T,
@@ -627,15 +627,15 @@ if __name__ == "__main__":
 #         logy=False,
 #         save_path=f"{FIG_DIR}/all_times_vs_T.png"
 #     )
-#     plot_T(
-#         df_T,
-#         y_cols=["RequestTime","SubmitTime","SolveTime"],
-#         title="All Times vs. T",
-#         ylabel="Time (ms)",
-#         xlabel="T (squarings)",
-#         logy=True,
-#         save_path=f"{FIG_DIR}/all_times_vs_T_log.png"
-#     )
+    plot_T(
+        df_T,
+        y_cols=["RequestTime","SubmitTime","SolveTime"],
+        title="All Times vs. T",
+        ylabel="Time (ms)",
+        xlabel="T (squarings)",
+        logy=True,
+        save_path=f"{FIG_DIR}/all_times_vs_T_log.png"
+    )
 # 
 #     df_RS = pd.read_csv(f"{DATA_DIR}/vary_input_size.csv")
 #     df_RS.columns = df_RS.columns.str.strip()
@@ -658,10 +658,10 @@ if __name__ == "__main__":
 #         save_path=f"{FIG_DIR}/all_times_vs_reqsize.png"
 #     )
 # 
-    df_C = pd.read_csv(f"{DATA_DIR}/cycles.csv.cycles.csv")
-    df_C.columns = df_C.columns.str.strip()
-    cap = df_C.groupby("T")["Cycles"].transform(lambda x: x.quantile(0.99))
-    df_C["Cycles"] = df_C["Cycles"].clip(upper=cap)
+#     df_C = pd.read_csv(f"{DATA_DIR}/cycles.csv.cycles.csv")
+#     df_C.columns = df_C.columns.str.strip()
+#     cap = df_C.groupby("T")["Cycles"].transform(lambda x: x.quantile(0.99))
+#     df_C["Cycles"] = df_C["Cycles"].clip(upper=cap)
 # 
 #     plot_cycles_variance(
 #         df_C,
@@ -680,20 +680,20 @@ if __name__ == "__main__":
 #         save_path=f"{FIG_DIR}/cycles_box_plot.png"
 #     )
 # 
-    df_Cpy = pd.read_csv(f"{DATA_DIR}/cycles_py.csv")
-    df_Cpy.columns = df_Cpy.columns.str.strip()
-
-    plot_implementations(
-        data=[(df_C, "mbedtls squaring loop"),(df_Cpy, "python pow(x, 2**T, N)")],
-        title="Implementation Comparison of Puzzle Computation",
-        save_path=f"{FIG_DIR}/cycles_impl_comp.png"
-    )
-
-    plot_implementations(
-        data=[(df_Cpy, "python puzzle computation")],
-        title="Total Cycles vs. T",
-        save_path=f"{FIG_DIR}/cycles_python.png"
-    )
+#     df_Cpy = pd.read_csv(f"{DATA_DIR}/cycles_py.csv")
+#     df_Cpy.columns = df_Cpy.columns.str.strip()
+# 
+#     plot_implementations(
+#         data=[(df_C, "mbedtls squaring loop"),(df_Cpy, "python pow(x, 2**T, N)")],
+#         title="Implementation Comparison of Puzzle Computation",
+#         save_path=f"{FIG_DIR}/cycles_impl_comp.png"
+#     )
+# 
+#     plot_implementations(
+#         data=[(df_Cpy, "python puzzle computation")],
+#         title="Total Cycles vs. T",
+#         save_path=f"{FIG_DIR}/cycles_python.png"
+#     )
 # 
 #     df_E = pd.read_csv(f"{DATA_DIR}/vary_exp_cycles.csv")
 #     df_E.columns = df_E.columns.str.strip()
