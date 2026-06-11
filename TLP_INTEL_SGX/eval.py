@@ -61,6 +61,8 @@ def run_once(
     args.append(str(len(elements)))
     args += [str(e) for e in elements]
 
+    print("running: ", args)
+
     result = subprocess.run(args, capture_output=True, text=True)
     if result.returncode != 0:
         print("stderr:", result.stderr)
@@ -126,12 +128,77 @@ def gather_data():
     #         private_set_size=100,
     #     )
     # print("cycles done")
-    with open(f"{DATA_DIR}/cycles_py_2.csv", "w", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow(["T","Time","Cycles"])
-        for t in range(5,35):
-            cycles, ms = measure(t)
-            writer.writerow([2**t + 7, ms, cycles])
+    # with open(f"{DATA_DIR}/cycles_py_2.csv", "w", newline="") as f:
+    #     writer = csv.writer(f)
+    #     writer.writerow(["T","Time","Cycles"])
+    #     for t in range(5,35):
+    #         cycles, ms = measure(t)
+    #         writer.writerow([2**t + 7, ms, cycles])
+# 
+#     out = f"{DATA_DIR}/vary_exp_cycles.csv"
+#     if os.path.exists(out):
+#         os.remove(out)
+#     cycles_per_it = 300000
+#     for i in range(1, 20):
+#         run_once(
+#             elements=[42],
+#             log=2,
+#             log_file="vary_exp_cycles",
+#             T_exp=1,
+#             T_baseline_comp=1,
+#             T_input_size_comp=0,
+#             T_private_set_comp=0,
+#             private_set_size=100,
+#             min_expected_cycles=(2**i)*cycles_per_it
+#         )
+    # 
+    # out = f"{DATA_DIR}/vary_domain_size.csv"
+    # if os.path.exists(out):
+    #     os.remove(out)
+    # cycles_per_it = 300000
+    # for i in range(4, 20):
+    #     run_once(
+    #         elements=[42],
+    #         log=2,
+    #         log_file="vary_domain_size",
+    #         T_exp=1,
+    #         T_baseline_comp=1,
+    #         T_input_size_comp=0,
+    #         T_private_set_comp=0,
+    #         private_set_size=100,
+    #         min_expected_cycles=2**8 * cycles_per_it,
+    #         private_set_digits=i
+    #     )
+    
+    # 
+    # out = f"{DATA_DIR}/vary_priv_set_size.csv"
+    # if os.path.exists(out):
+    #     os.remove(out)
+    # cycles_per_it = 300000
+    # for i in range(100, 10001, 500):
+    #     run_once(
+    #         elements=[42],
+    #         log=2,
+    #         log_file="vary_priv_set_size",
+    #         T_exp=1,
+    #         T_baseline_comp=1,
+    #         T_input_size_comp=0,
+    #         T_private_set_comp=1,
+    #         private_set_size=i,
+    #         min_expected_cycles=2**8 * cycles_per_it,
+    #         private_set_digits=4
+    #     )
+
+    for n_bits in range(6, 11):
+        for T_exp in range(5, 16):
+            run_once(
+                elements=[42],
+                log=2,
+                log_file="vary_T_num_bits",
+                T_exp=T_exp,
+                num_bits=2**n_bits
+            )
+    
     
 
 
@@ -161,7 +228,7 @@ def plot_T(df, y_cols, title, ylabel, xlabel, logy, save_path=None):
     row = df.iloc[0]
     config = [
         f"Modulus Size:  1024 bits",
-        f"Size of Input:  {row["RequestSize"]} elem",
+        f"Size of Input:  {1} elem",
         f"Size of Domain:  {10**row["private_set_digits"]}",
         f"Size of Private Set:  {row["private_set_size"]}",
         f"Dynamic Scaling of T:\n  - No scaling of T"
@@ -238,7 +305,6 @@ def plot_RequestSize(df, y_cols, title, ylabel, xlabel, options, save_path=None)
     else:
         plt.show()
     plt.close(fig)
-
 
 def plot_cycles_variance(df, Ts, title, xlim, xlog, window, save_path=None):
     fig, ax = plt.subplots(figsize=(12, 6))
@@ -348,97 +414,348 @@ def plot_implementations(data, title, save_path=None):
         plt.show()
     plt.close(fig)
     
+def plot_exp_cycles(df, y_cols, title, ylabel, xlabel, logy, save_path=None):
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    colors = cm.tab10(np.linspace(0, 1, len(y_cols)))
+    for y_col, color in zip(y_cols, colors):
+        y = df[y_col].clip(lower=1)
+        ax.plot(df["min_expected_cycles"], y, marker="o", label=y_col, color=color)
+
+
+    ax.set_ylabel(ylabel)
+    ax.set_xlabel(xlabel)
+
+    ax.set_xscale("log", base=2)
+    ax.set_yscale("log", base=2)
+
+    ax.set_title(title)
+    ax.legend()
+    ax.grid(True, linestyle="--", alpha=0.5)
+
+    row = df.iloc[0]
+    config = [
+        f"Modulus Size:  1024 bits",
+        f"Size of Input:  {row["RequestSize"]} elem",
+        f"Size of Domain:  {10**row["private_set_digits"]}",
+        f"Size of Private Set:  {row["private_set_size"]}",
+        f"Dynamic Scaling of T:\n  - No scaling of T"
+    ]
+    config_text = "\n".join(config)
+    ax.text(
+        0.02, 0.98, config_text,
+        transform=ax.transAxes,
+        fontsize=9,
+        verticalalignment="top",
+        horizontalalignment="left",
+        multialignment="left",
+        bbox=dict(boxstyle="round", facecolor="whitesmoke", alpha=0.8),
+        fontfamily="monospace",
+    )
+    fig.tight_layout()
+
+    if save_path:
+        fig.savefig(save_path, dpi=150)
+        print(f"Saved: {save_path}")
+    else:
+        plt.show()
+
+    plt.close(fig)
+
+def plot_domain_sizes(df, y_cols, title, ylabel, xlabel, logy, save_path=None):
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    colors = cm.tab10(np.linspace(0, 1, len(y_cols)))
+    df["DomainSize"] = 10 ** df["private_set_digits"]
+    for y_col, color in zip(y_cols, colors):
+        y = df[y_col].clip(lower=1)
+        ax.plot(df["DomainSize"], y, marker="o", label=y_col, color=color)
+
+
+    ax.set_ylabel(ylabel)
+    ax.set_xlabel(xlabel)
+    ax.set_xscale("log", base=10)
+
+    ax.set_title(title)
+    ax.legend()
+    ax.grid(True, linestyle="--", alpha=0.5)
+
+    row = df.iloc[0]
+    config = [
+        f"Modulus Size:  1024 bits",
+        f"Size of Input:  {row["RequestSize"]} elem",
+        f"Expected Cycles:  {row["min_expected_cycles"]}",
+        f"Size of Private Set:  {row["private_set_size"]}",
+        f"Dynamic Scaling of T:\n  - No scaling of T"
+    ]
+    config_text = "\n".join(config)
+    ax.text(
+        0.02, 0.98, config_text,
+        transform=ax.transAxes,
+        fontsize=9,
+        verticalalignment="top",
+        horizontalalignment="left",
+        multialignment="left",
+        bbox=dict(boxstyle="round", facecolor="whitesmoke", alpha=0.8),
+        fontfamily="monospace",
+    )
+    fig.tight_layout()
+
+    if save_path:
+        fig.savefig(save_path, dpi=150)
+        print(f"Saved: {save_path}")
+    else:
+        plt.show()
+
+    plt.close(fig)
+
+def plot_private_set_size(df, y_cols, title, ylabel, xlabel, logy, save_path=None):
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    colors = cm.tab10(np.linspace(0, 1, len(y_cols)))
+    for y_col, color in zip(y_cols, colors):
+        y = df[y_col].clip(lower=1)
+        ax.plot(df["private_set_size"], y, marker="o", label=y_col, color=color)
+
+
+    ax.set_ylabel(ylabel)
+    ax.set_xlabel(xlabel)
+
+    ax.set_title(title)
+    ax.legend()
+    ax.grid(True, linestyle="--", alpha=0.5)
+
+    row = df.iloc[0]
+    config = [
+        f"Modulus Size:  1024 bits",
+        f"Size of Input:  {row["RequestSize"]} elem",
+        f"Expected Cycles:  {row["min_expected_cycles"]}",
+        f"Size of Domain: {10 **row["private_set_digits"]}",
+        f"Dynamic Scaling of T:\n  - Scaling with Private Set Size"
+    ]
+    config_text = "\n".join(config)
+    ax.text(
+        0.02, 0.98, config_text,
+        transform=ax.transAxes,
+        fontsize=9,
+        verticalalignment="top",
+        horizontalalignment="left",
+        multialignment="left",
+        bbox=dict(boxstyle="round", facecolor="whitesmoke", alpha=0.8),
+        fontfamily="monospace",
+    )
+    fig.tight_layout()
+
+    if save_path:
+        fig.savefig(save_path, dpi=150)
+        print(f"Saved: {save_path}")
+    else:
+        plt.show()
+
+    plt.close(fig)
+
+
+def plot_encl_data(df, y_cols, title, ylabel, xlabel, logy, save_path=None):
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    colors = cm.tab10(np.linspace(0, 1, len(y_cols)))
+    for y_col, color in zip(y_cols, colors):
+        y = df[df["T_exp"] == 15][y_col]
+        ax.plot(df[df["T_exp"] == 15]["num_bits"] * 2, y, marker="o", label=y_col, color=color)
+
+    if logy:
+        ax.set_yscale("log", base=2)
+    ax.set_ylabel(ylabel)
+
+
+    ax.set_xscale("log", base=2)
+    ax.set_xlabel(xlabel)
+
+    ax.set_title(title)
+    ax.legend()
+    ax.grid(True, linestyle="--", alpha=0.5)
+
+    row = df.iloc[0]
+    config = [
+        f"Size of Input:  {1} elem",
+        f"Size of Domain:  {10**row["private_set_digits"]}",
+        f"Size of Private Set:  {row["private_set_size"]}",
+        f"Dynamic Scaling of T:\n  - No scaling of T"
+    ]
+    config_text = "\n".join(config)
+    ax.text(
+        0.02, 0.98, config_text,
+        transform=ax.transAxes,
+        fontsize=9,
+        verticalalignment="top",
+        horizontalalignment="left",
+        multialignment="left",
+        bbox=dict(boxstyle="round", facecolor="whitesmoke", alpha=0.8),
+        fontfamily="monospace",
+    )
+    fig.tight_layout()
+
+    if save_path:
+        fig.savefig(save_path, dpi=150)
+        print(f"Saved: {save_path}")
+    else:
+        plt.show()
+
+    plt.close(fig)
+
 if __name__ == "__main__":
-    gather_data()
+    # gather_data()
 
-    df_T = pd.read_csv(f"{DATA_DIR}/vary_T_exp.csv")
-    df_T.columns = df_T.columns.str.strip()
+#     df_T = pd.read_csv(f"{DATA_DIR}/vary_T_exp.csv")
+#     df_T.columns = df_T.columns.str.strip()
+# 
+#     plot_T(
+#         df_T,
+#         y_cols=["SolveTime"],
+#         title="Solve Time vs. T",
+#         ylabel="Time (ms)",
+#         xlabel="T (squarings)",
+#         logy=False,
+#         save_path=f"{FIG_DIR}/solve_time_vs_T.png"
+#     )
+#     plot_T(
+#         df_T,
+#         y_cols=["RequestTime","SubmitTime","SolveTime"],
+#         title="All Times vs. T",
+#         ylabel="Time (ms)",
+#         xlabel="T (squarings)",
+#         logy=False,
+#         save_path=f"{FIG_DIR}/all_times_vs_T.png"
+#     )
+#     plot_T(
+#         df_T,
+#         y_cols=["RequestTime","SubmitTime","SolveTime"],
+#         title="All Times vs. T",
+#         ylabel="Time (ms)",
+#         xlabel="T (squarings)",
+#         logy=True,
+#         save_path=f"{FIG_DIR}/all_times_vs_T_log.png"
+#     )
+# 
+#     df_RS = pd.read_csv(f"{DATA_DIR}/vary_input_size.csv")
+#     df_RS.columns = df_RS.columns.str.strip()
+#     plot_RequestSize(
+#         df_RS,
+#         y_cols=["SolveTime"],
+#         title="Solve Time vs. Input Size",
+#         ylabel="Time (ms)",
+#         xlabel="Input Size (# elements)",
+#         options=[0,1],
+#         save_path=f"{FIG_DIR}/solve_time_vs_reqsize.png"
+#     )
+#     plot_RequestSize(
+#         df_RS,
+#         y_cols=["RequestTime","SubmitTime","SolveTime"],
+#         title="All Times vs. Input Size",
+#         ylabel="Time (ms)",
+#         xlabel="Input Size (# elements)",
+#         options=[1],
+#         save_path=f"{FIG_DIR}/all_times_vs_reqsize.png"
+#     )
+# 
+#     df_C = pd.read_csv(f"{DATA_DIR}/cycles.csv.cycles.csv")
+#     df_C.columns = df_C.columns.str.strip()
+#     cap = df_C.groupby("T")["Cycles"].transform(lambda x: x.quantile(0.99))
+#     df_C["Cycles"] = df_C["Cycles"].clip(upper=cap)
+# 
+#     plot_cycles_variance(
+#         df_C,
+#         Ts=[2**i for i in range(9,20, 3)],
+#         title="Cycles per Iteration by T",
+#         xlim=0,
+#         window=3,
+#         xlog=True,
+#         save_path=f"{FIG_DIR}/cycles_by_iteration_all_t.png"
+#     )
+# 
+#     plot_cycles_boxplot(
+#         df_C,
+#         title="Cycle Count Distribution by T",
+#         Ts=[2**i for i in range(9,20)],
+#         save_path=f"{FIG_DIR}/cycles_box_plot.png"
+#     )
+# 
+#     df_Cpy = pd.read_csv(f"{DATA_DIR}/cycles_py.csv")
+#     df_RS.columns = df_RS.columns.str.strip()
+# 
+#     df_Cpy2 = pd.read_csv(f"{DATA_DIR}/cycles_py_2.csv")
+#     df_RS.columns = df_RS.columns.str.strip()
+# 
+#     plot_implementations(
+#         data=[(df_C, "mbedtls squaring loop"),(df_Cpy, "python pow(x,2**T,N)")],
+#         title="Implementation Comparison of Puzzle Computation",
+#         save_path=f"{FIG_DIR}/cycles_impl_comp.png"
+#     )
+# 
+#     plot_implementations(
+#         data=[(df_Cpy2, "python puzzle computation")],
+#         title="Total Cycles vs. T",
+#         save_path=f"{FIG_DIR}/cycles_python.png"
+#     )
+# 
+#     df_E = pd.read_csv(f"{DATA_DIR}/vary_exp_cycles.csv")
+#     df_E.columns = df_E.columns.str.strip()
+# 
+#     plot_exp_cycles(
+#         df_E,
+#         y_cols=["RequestTime","SubmitTime","SolveTime"],
+#         title="All Times vs. Expected Cycles",
+#         ylabel="Time (ms)",
+#         xlabel="Expected Cycles (per request)",
+#         logy=False,
+#         save_path=f"{FIG_DIR}/all_times_vs_exp_cycles.png"
+#     )
+# 
+#     df_D = pd.read_csv(f"{DATA_DIR}/vary_domain_size.csv")
+#     df_D.columns = df_D.columns.str.strip()
+# 
+#     plot_domain_sizes(
+#         df_D,
+#         y_cols=["RequestTime","SubmitTime","SolveTime"],
+#         title="All Times vs. Domain Size",
+#         ylabel="Time (ms)",
+#         xlabel="Domain Size",
+#         logy=False,
+#         save_path=f"{FIG_DIR}/all_times_vs_domain_size.png"
+#     )
+# 
+#     df_S = pd.read_csv(f"{DATA_DIR}/vary_priv_set_size.csv")
+#     df_S.columns = df_S.columns.str.strip()
+# 
+#     plot_private_set_size(
+#         df_S,
+#         y_cols=["RequestTime","SubmitTime","SolveTime"],
+#         title="All Times vs. Private Set Size",
+#         ylabel="Time (ms)",
+#         xlabel="Private Set Size",
+#         logy=False,
+#         save_path=f"{FIG_DIR}/all_times_vs_priv_set_size.png"
+#     )
+
+    df_Encl = pd.read_csv(f"{DATA_DIR}/encl_data.csv")
+    df_Encl.columns = df_Encl.columns.str.strip()
+
+    plot_encl_data(
+        df_Encl,
+        y_cols=["SetConfigTime","InitTime","TeardownTime"],
+        title="All Enclave Times vs. Modulus Bits",
+        ylabel="Time (ms)",
+        xlabel="Number of Bits",
+        logy=False,
+        save_path=f"{FIG_DIR}/encl_times_vs_num_bits.png"
+    )
 
     plot_T(
-        df_T,
-        y_cols=["SolveTime"],
-        title="Solve Time vs. T",
-        ylabel="Time (ms)",
-        xlabel="T (squarings)",
-        logy=False,
-        save_path=f"{FIG_DIR}/solve_time_vs_T.png"
-    )
-    plot_T(
-        df_T,
-        y_cols=["RequestTime","SubmitTime","SolveTime"],
-        title="All Times vs. T",
-        ylabel="Time (ms)",
-        xlabel="T (squarings)",
-        logy=False,
-        save_path=f"{FIG_DIR}/all_times_vs_T.png"
-    )
-    plot_T(
-        df_T,
-        y_cols=["RequestTime","SubmitTime","SolveTime"],
-        title="All Times vs. T",
+        df_Encl[df_Encl["num_bits"] == 1024],
+        y_cols=["SetConfigTime","InitTime","TeardownTime"],
+        title="All Enclave Times vs. T",
         ylabel="Time (ms)",
         xlabel="T (squarings)",
         logy=True,
-        save_path=f"{FIG_DIR}/all_times_vs_T_log.png"
-    )
-
-    df_RS = pd.read_csv(f"{DATA_DIR}/vary_input_size.csv")
-    df_RS.columns = df_RS.columns.str.strip()
-    plot_RequestSize(
-        df_RS,
-        y_cols=["SolveTime"],
-        title="Solve Time vs. Input Size",
-        ylabel="Time (ms)",
-        xlabel="Input Size (# elements)",
-        options=[0,1],
-        save_path=f"{FIG_DIR}/solve_time_vs_reqsize.png"
-    )
-    plot_RequestSize(
-        df_RS,
-        y_cols=["RequestTime","SubmitTime","SolveTime"],
-        title="All Times vs. Input Size",
-        ylabel="Time (ms)",
-        xlabel="Input Size (# elements)",
-        options=[1],
-        save_path=f"{FIG_DIR}/all_times_vs_reqsize.png"
-    )
-
-    df_C = pd.read_csv(f"{DATA_DIR}/cycles.csv.cycles.csv")
-    df_C.columns = df_C.columns.str.strip()
-    cap = df_C.groupby("T")["Cycles"].transform(lambda x: x.quantile(0.99))
-    df_C["Cycles"] = df_C["Cycles"].clip(upper=cap)
-
-    plot_cycles_variance(
-        df_C,
-        Ts=[2**i for i in range(9,20, 3)],
-        title="Cycles per Iteration by T",
-        xlim=0,
-        window=3,
-        xlog=True,
-        save_path=f"{FIG_DIR}/cycles_by_iteration_all_t.png"
-    )
-
-    plot_cycles_boxplot(
-        df_C,
-        title="Cycle Count Distribution by T",
-        Ts=[2**i for i in range(9,20)],
-        save_path=f"{FIG_DIR}/cycles_box_plot.png"
-    )
-
-    df_Cpy = pd.read_csv(f"{DATA_DIR}/cycles_py.csv")
-    df_RS.columns = df_RS.columns.str.strip()
-
-    df_Cpy2 = pd.read_csv(f"{DATA_DIR}/cycles_py_2.csv")
-    df_RS.columns = df_RS.columns.str.strip()
-
-    plot_implementations(
-        data=[(df_C, "mbedtls squaring loop"),(df_Cpy, "python pow(x,2**T,N)")],
-        title="Implementation Comparison of Puzzle Computation",
-        save_path=f"{FIG_DIR}/cycles_impl_comp.png"
-    )
-
-    plot_implementations(
-        data=[(df_Cpy2, "python puzzle computation")],
-        title="Total Cycles vs. T",
-        save_path=f"{FIG_DIR}/cycles_python.png"
+        save_path=f"{FIG_DIR}/encl_times_vs_T.png"
     )

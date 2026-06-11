@@ -139,21 +139,23 @@ void initialize_private_set(void)
  */
 int ecall_set_config(struct config *c)
 {
-    if (c->num_bits <= 256 || c->num_bits > 4096)
+    if (c->num_bits < 64 || c->num_bits > 1024)
         return -1;
     if (c->private_set_digits < 1 || c->private_set_digits > 20)
-        return -1;
+        return -2;
     if (c->private_set_size < 1 || c->private_set_size > 1000000000
                 || c->private_set_size > pow(10, c->private_set_digits))
-        return -1;
+        return -3;
     if (c->T_exp < 1 || c->T_exp > 30)
-        return -1;
+        return -4;
     if (c->T_baseline_comp < 0 || c->T_baseline_comp > 2)
-        return -1;
+        return -5;
     if (c->T_input_size_comp < 0 || c->T_input_size_comp > 2)
-        return -1;
+        return -6;
     if (c->T_private_set_comp < 0 || c->T_private_set_comp > 2)
-        return -1;
+        return -7;
+    if (c->T_private_set_comp == 1 && c->T_baseline_comp != 1)
+        return -8;
     
     conf = *c;
 

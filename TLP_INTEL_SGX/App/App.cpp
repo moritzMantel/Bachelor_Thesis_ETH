@@ -13,8 +13,7 @@
 #include <unistd.h>
 #include <pwd.h>
 
-#define NUM_BITS 1024
-#define MPI_STR_SIZE NUM_BITS
+#define MPI_STR_SIZE 1024
 
 #include "sgx_urts.h"
 #include "App.h"
@@ -386,8 +385,11 @@ int SGX_CDECL main(int argc, char *argv[])
         bool write_encl_header = !std::ifstream("evaluation/data/encl_data.csv").good();
         std::ofstream encl_data("evaluation/data/encl_data.csv", std::ios::app);
         if (write_encl_header)
-            encl_data << "SetConfigTime,InitTime,TeardownTime\n";
-        encl_data << config_ms << "," << init_ms << "," << teardown_ms << "\n";
+            encl_data << "num_bits,private_set_digits,private_set_size,min_expected_cycles,T_exp,T_baseline_comp,T_input_size_comp,T_private_set_comp,SetConfigTime,InitTime,TeardownTime\n";
+        encl_data << c.num_bits << "," << c.private_set_digits << "," << c.private_set_size << ","
+          << c.min_expected_cycles << "," << c.T_exp << "," << c.T_baseline_comp << ","
+          << c.T_input_size_comp << "," << c.T_private_set_comp << ","
+            << config_ms << "," << init_ms << "," << teardown_ms << "\n";
     }
 
     /*
