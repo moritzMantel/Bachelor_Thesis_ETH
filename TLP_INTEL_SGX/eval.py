@@ -128,13 +128,13 @@ def gather_data():
     #         private_set_size=100,
     #     )
     # print("cycles done")
-    # with open(f"{DATA_DIR}/cycles_py_2.csv", "w", newline="") as f:
-    #     writer = csv.writer(f)
-    #     writer.writerow(["T","Time","Cycles"])
-    #     for t in range(5,35):
-    #         cycles, ms = measure(t)
-    #         writer.writerow([2**t + 7, ms, cycles])
-# 
+    with open(f"{DATA_DIR}/cycles_py.csv", "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["T","Time","Cycles"])
+        for t in range(5,20):
+            cycles, ms = measure(2**t)
+            writer.writerow([(2**t), ms, cycles])
+
 #     out = f"{DATA_DIR}/vary_exp_cycles.csv"
 #     if os.path.exists(out):
 #         os.remove(out)
@@ -189,15 +189,15 @@ def gather_data():
     #         private_set_digits=4
     #     )
 
-    for n_bits in range(6, 11):
-        for T_exp in range(5, 16):
-            run_once(
-                elements=[42],
-                log=2,
-                log_file="vary_T_num_bits",
-                T_exp=T_exp,
-                num_bits=2**n_bits
-            )
+    # for n_bits in range(6, 11):
+    #     for T_exp in range(5, 16):
+    #         run_once(
+    #             elements=[42],
+    #             log=2,
+    #             log_file="vary_T_num_bits",
+    #             T_exp=T_exp,
+    #             num_bits=2**n_bits
+    #         )
     
     
 
@@ -604,7 +604,7 @@ def plot_encl_data(df, y_cols, title, ylabel, xlabel, logy, save_path=None):
     plt.close(fig)
 
 if __name__ == "__main__":
-    # gather_data()
+    gather_data()
 
 #     df_T = pd.read_csv(f"{DATA_DIR}/vary_T_exp.csv")
 #     df_T.columns = df_T.columns.str.strip()
@@ -658,10 +658,10 @@ if __name__ == "__main__":
 #         save_path=f"{FIG_DIR}/all_times_vs_reqsize.png"
 #     )
 # 
-#     df_C = pd.read_csv(f"{DATA_DIR}/cycles.csv.cycles.csv")
-#     df_C.columns = df_C.columns.str.strip()
-#     cap = df_C.groupby("T")["Cycles"].transform(lambda x: x.quantile(0.99))
-#     df_C["Cycles"] = df_C["Cycles"].clip(upper=cap)
+    df_C = pd.read_csv(f"{DATA_DIR}/cycles.csv.cycles.csv")
+    df_C.columns = df_C.columns.str.strip()
+    cap = df_C.groupby("T")["Cycles"].transform(lambda x: x.quantile(0.99))
+    df_C["Cycles"] = df_C["Cycles"].clip(upper=cap)
 # 
 #     plot_cycles_variance(
 #         df_C,
@@ -680,23 +680,20 @@ if __name__ == "__main__":
 #         save_path=f"{FIG_DIR}/cycles_box_plot.png"
 #     )
 # 
-#     df_Cpy = pd.read_csv(f"{DATA_DIR}/cycles_py.csv")
-#     df_RS.columns = df_RS.columns.str.strip()
-# 
-#     df_Cpy2 = pd.read_csv(f"{DATA_DIR}/cycles_py_2.csv")
-#     df_RS.columns = df_RS.columns.str.strip()
-# 
-#     plot_implementations(
-#         data=[(df_C, "mbedtls squaring loop"),(df_Cpy, "python pow(x,2**T,N)")],
-#         title="Implementation Comparison of Puzzle Computation",
-#         save_path=f"{FIG_DIR}/cycles_impl_comp.png"
-#     )
-# 
-#     plot_implementations(
-#         data=[(df_Cpy2, "python puzzle computation")],
-#         title="Total Cycles vs. T",
-#         save_path=f"{FIG_DIR}/cycles_python.png"
-#     )
+    df_Cpy = pd.read_csv(f"{DATA_DIR}/cycles_py.csv")
+    df_Cpy.columns = df_Cpy.columns.str.strip()
+
+    plot_implementations(
+        data=[(df_C, "mbedtls squaring loop"),(df_Cpy, "python pow(x, 2**T, N)")],
+        title="Implementation Comparison of Puzzle Computation",
+        save_path=f"{FIG_DIR}/cycles_impl_comp.png"
+    )
+
+    plot_implementations(
+        data=[(df_Cpy, "python puzzle computation")],
+        title="Total Cycles vs. T",
+        save_path=f"{FIG_DIR}/cycles_python.png"
+    )
 # 
 #     df_E = pd.read_csv(f"{DATA_DIR}/vary_exp_cycles.csv")
 #     df_E.columns = df_E.columns.str.strip()
@@ -736,26 +733,26 @@ if __name__ == "__main__":
 #         logy=False,
 #         save_path=f"{FIG_DIR}/all_times_vs_priv_set_size.png"
 #     )
-
-    df_Encl = pd.read_csv(f"{DATA_DIR}/encl_data.csv")
-    df_Encl.columns = df_Encl.columns.str.strip()
-
-    plot_encl_data(
-        df_Encl,
-        y_cols=["SetConfigTime","InitTime","TeardownTime"],
-        title="All Enclave Times vs. Modulus Bits",
-        ylabel="Time (ms)",
-        xlabel="Number of Bits",
-        logy=False,
-        save_path=f"{FIG_DIR}/encl_times_vs_num_bits.png"
-    )
-
-    plot_T(
-        df_Encl[df_Encl["num_bits"] == 1024],
-        y_cols=["SetConfigTime","InitTime","TeardownTime"],
-        title="All Enclave Times vs. T",
-        ylabel="Time (ms)",
-        xlabel="T (squarings)",
-        logy=True,
-        save_path=f"{FIG_DIR}/encl_times_vs_T.png"
-    )
+# 
+#     df_Encl = pd.read_csv(f"{DATA_DIR}/encl_data.csv")
+#     df_Encl.columns = df_Encl.columns.str.strip()
+# 
+#     plot_encl_data(
+#         df_Encl,
+#         y_cols=["SetConfigTime","InitTime","TeardownTime"],
+#         title="All Enclave Times vs. Modulus Bits",
+#         ylabel="Time (ms)",
+#         xlabel="Number of Bits",
+#         logy=False,
+#         save_path=f"{FIG_DIR}/encl_times_vs_num_bits.png"
+#     )
+# 
+#     plot_T(
+#         df_Encl[df_Encl["num_bits"] == 1024],
+#         y_cols=["SetConfigTime","InitTime","TeardownTime"],
+#         title="All Enclave Times vs. T",
+#         ylabel="Time (ms)",
+#         xlabel="T (squarings)",
+#         logy=True,
+#         save_path=f"{FIG_DIR}/encl_times_vs_T.png"
+#     )
