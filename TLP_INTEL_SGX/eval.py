@@ -8,6 +8,15 @@ import math
 import csv
 import time
 
+labels = {
+    "RequestTime": "Puzzle Generation",
+    "SolveTime": "Puzzle Solver",
+    "SubmitTime": "Puzzle Verification",
+    "SetConfigTime": "Configuration Change",
+    "InitTime": "Crypto Initialisation",
+    "TeardownTime": "Crypto Freeing"
+}
+
 BINARY = "./app"
 DATA_DIR = "evaluation/data"
 FIG_DIR = "evaluation/figures"
@@ -199,10 +208,6 @@ def gather_data():
     #             num_bits=2**n_bits
     #         )
     
-    
-
-
-
 def plot_T(df, y_cols, title, ylabel, xlabel, logy, save_path=None):
     fig, ax = plt.subplots(figsize=(10, 6))
 
@@ -210,7 +215,7 @@ def plot_T(df, y_cols, title, ylabel, xlabel, logy, save_path=None):
     colors = cm.tab10(np.linspace(0, 1, len(y_cols)))
     for y_col, color in zip(y_cols, colors):
         y = df[y_col].clip(lower=1)
-        ax.plot(df["T"], y, marker="o", label=y_col, color=color)
+        ax.plot(df["T"], y, marker="o", label=labels[y_col], color=color)
 
     if logy:
         ax.set_yscale("log", base=2)
@@ -224,26 +229,7 @@ def plot_T(df, y_cols, title, ylabel, xlabel, logy, save_path=None):
     ax.set_title(title)
     ax.legend()
     ax.grid(True, linestyle="--", alpha=0.5)
-
-    row = df.iloc[0]
-    config = [
-        f"Modulus Size:  1024 bits",
-        f"Size of Input:  {1} elem",
-        f"Size of Domain:  {10**row["private_set_digits"]}",
-        f"Size of Private Set:  {row["private_set_size"]}",
-        f"Dynamic Scaling of T:\n  - No scaling of T"
-    ]
-    config_text = "\n".join(config)
-    ax.text(
-        0.02, 0.98, config_text,
-        transform=ax.transAxes,
-        fontsize=9,
-        verticalalignment="top",
-        horizontalalignment="left",
-        multialignment="left",
-        bbox=dict(boxstyle="round", facecolor="whitesmoke", alpha=0.8),
-        fontfamily="monospace",
-    )
+    
     fig.tight_layout()
 
     if save_path:
@@ -270,7 +256,7 @@ def plot_RequestSize(df, y_cols, title, ylabel, xlabel, options, save_path=None)
             ax.plot(
                 v["RequestSize"], v[y_col].clip(lower=1),
                 marker="o", color=c,
-                label=f"{y_col} ({"linear" if k else "no"} scaling)",
+                label=f"{labels[y_col]} ({"linear" if k else "no"} scaling)",
             )
 
     ax.set_ylabel(ylabel)
@@ -278,25 +264,6 @@ def plot_RequestSize(df, y_cols, title, ylabel, xlabel, options, save_path=None)
     ax.set_title(title)
     ax.legend()
     ax.grid(True, linestyle="--", alpha=0.5)
-
-    row = df.iloc[0]
-    config = [
-        f"Modulus Size:  1024 bits",
-        f"T:  {2**int(row['T_exp'])} squarings",
-        f"Size of Domain:  {10**row['private_set_digits']}",
-        f"Size of Private Set:  {row['private_set_size']}",
-        f"Dynamic Scaling of T:\n  - no scaling based on private set",
-    ]
-    ax.text(
-        0.02, 0.98, "\n".join(config),
-        transform=ax.transAxes,
-        fontsize=9,
-        verticalalignment="top",
-        horizontalalignment="left",
-        multialignment="left",
-        bbox=dict(boxstyle="round", facecolor="whitesmoke", alpha=0.8),
-        fontfamily="monospace",
-    )
 
     fig.tight_layout()
     if save_path:
@@ -420,7 +387,7 @@ def plot_exp_cycles(df, y_cols, title, ylabel, xlabel, logy, save_path=None):
     colors = cm.tab10(np.linspace(0, 1, len(y_cols)))
     for y_col, color in zip(y_cols, colors):
         y = df[y_col].clip(lower=1)
-        ax.plot(df["min_expected_cycles"], y, marker="o", label=y_col, color=color)
+        ax.plot(df["min_expected_cycles"], y, marker="o", label=labels[y_col], color=color)
 
 
     ax.set_ylabel(ylabel)
@@ -433,25 +400,6 @@ def plot_exp_cycles(df, y_cols, title, ylabel, xlabel, logy, save_path=None):
     ax.legend()
     ax.grid(True, linestyle="--", alpha=0.5)
 
-    row = df.iloc[0]
-    config = [
-        f"Modulus Size:  1024 bits",
-        f"Size of Input:  {row["RequestSize"]} elem",
-        f"Size of Domain:  {10**row["private_set_digits"]}",
-        f"Size of Private Set:  {row["private_set_size"]}",
-        f"Dynamic Scaling of T:\n  - No scaling of T"
-    ]
-    config_text = "\n".join(config)
-    ax.text(
-        0.02, 0.98, config_text,
-        transform=ax.transAxes,
-        fontsize=9,
-        verticalalignment="top",
-        horizontalalignment="left",
-        multialignment="left",
-        bbox=dict(boxstyle="round", facecolor="whitesmoke", alpha=0.8),
-        fontfamily="monospace",
-    )
     fig.tight_layout()
 
     if save_path:
@@ -469,7 +417,7 @@ def plot_domain_sizes(df, y_cols, title, ylabel, xlabel, logy, save_path=None):
     df["DomainSize"] = 10 ** df["private_set_digits"]
     for y_col, color in zip(y_cols, colors):
         y = df[y_col].clip(lower=1)
-        ax.plot(df["DomainSize"], y, marker="o", label=y_col, color=color)
+        ax.plot(df["DomainSize"], y, marker="o", label=labels[y_col], color=color)
 
 
     ax.set_ylabel(ylabel)
@@ -479,26 +427,6 @@ def plot_domain_sizes(df, y_cols, title, ylabel, xlabel, logy, save_path=None):
     ax.set_title(title)
     ax.legend()
     ax.grid(True, linestyle="--", alpha=0.5)
-
-    row = df.iloc[0]
-    config = [
-        f"Modulus Size:  1024 bits",
-        f"Size of Input:  {row["RequestSize"]} elem",
-        f"Expected Cycles:  {row["min_expected_cycles"]}",
-        f"Size of Private Set:  {row["private_set_size"]}",
-        f"Dynamic Scaling of T:\n  - No scaling of T"
-    ]
-    config_text = "\n".join(config)
-    ax.text(
-        0.02, 0.98, config_text,
-        transform=ax.transAxes,
-        fontsize=9,
-        verticalalignment="top",
-        horizontalalignment="left",
-        multialignment="left",
-        bbox=dict(boxstyle="round", facecolor="whitesmoke", alpha=0.8),
-        fontfamily="monospace",
-    )
     fig.tight_layout()
 
     if save_path:
@@ -515,7 +443,7 @@ def plot_private_set_size(df, y_cols, title, ylabel, xlabel, logy, save_path=Non
     colors = cm.tab10(np.linspace(0, 1, len(y_cols)))
     for y_col, color in zip(y_cols, colors):
         y = df[y_col].clip(lower=1)
-        ax.plot(df["private_set_size"], y, marker="o", label=y_col, color=color)
+        ax.plot(df["private_set_size"], y, marker="o", label=labels[y_col], color=color)
 
 
     ax.set_ylabel(ylabel)
@@ -525,25 +453,6 @@ def plot_private_set_size(df, y_cols, title, ylabel, xlabel, logy, save_path=Non
     ax.legend()
     ax.grid(True, linestyle="--", alpha=0.5)
 
-    row = df.iloc[0]
-    config = [
-        f"Modulus Size:  1024 bits",
-        f"Size of Input:  {row["RequestSize"]} elem",
-        f"Expected Cycles:  {row["min_expected_cycles"]}",
-        f"Size of Domain: {10 **row["private_set_digits"]}",
-        f"Dynamic Scaling of T:\n  - Scaling with Private Set Size"
-    ]
-    config_text = "\n".join(config)
-    ax.text(
-        0.02, 0.98, config_text,
-        transform=ax.transAxes,
-        fontsize=9,
-        verticalalignment="top",
-        horizontalalignment="left",
-        multialignment="left",
-        bbox=dict(boxstyle="round", facecolor="whitesmoke", alpha=0.8),
-        fontfamily="monospace",
-    )
     fig.tight_layout()
 
     if save_path:
@@ -575,24 +484,6 @@ def plot_encl_data(df, y_cols, title, ylabel, xlabel, logy, save_path=None):
     ax.legend()
     ax.grid(True, linestyle="--", alpha=0.5)
 
-    row = df.iloc[0]
-    config = [
-        f"Size of Input:  {1} elem",
-        f"Size of Domain:  {10**row["private_set_digits"]}",
-        f"Size of Private Set:  {row["private_set_size"]}",
-        f"Dynamic Scaling of T:\n  - No scaling of T"
-    ]
-    config_text = "\n".join(config)
-    ax.text(
-        0.02, 0.98, config_text,
-        transform=ax.transAxes,
-        fontsize=9,
-        verticalalignment="top",
-        horizontalalignment="left",
-        multialignment="left",
-        bbox=dict(boxstyle="round", facecolor="whitesmoke", alpha=0.8),
-        fontfamily="monospace",
-    )
     fig.tight_layout()
 
     if save_path:
@@ -608,25 +499,25 @@ if __name__ == "__main__":
 
     df_T = pd.read_csv(f"{DATA_DIR}/vary_T_exp.csv")
     df_T.columns = df_T.columns.str.strip()
-# 
-#     plot_T(
-#         df_T,
-#         y_cols=["SolveTime"],
-#         title="Solve Time vs. T",
-#         ylabel="Time (ms)",
-#         xlabel="T (squarings)",
-#         logy=False,
-#         save_path=f"{FIG_DIR}/solve_time_vs_T.png"
-#     )
-#     plot_T(
-#         df_T,
-#         y_cols=["RequestTime","SubmitTime","SolveTime"],
-#         title="All Times vs. T",
-#         ylabel="Time (ms)",
-#         xlabel="T (squarings)",
-#         logy=False,
-#         save_path=f"{FIG_DIR}/all_times_vs_T.png"
-#     )
+
+    plot_T(
+        df_T,
+        y_cols=["SolveTime"],
+        title="Solve Time vs. T",
+        ylabel="Time (ms)",
+        xlabel="T (squarings)",
+        logy=False,
+        save_path=f"{FIG_DIR}/solve_time_vs_T.png"
+    )
+    plot_T(
+        df_T,
+        y_cols=["RequestTime","SubmitTime","SolveTime"],
+        title="All Times vs. T",
+        ylabel="Time (ms)",
+        xlabel="T (squarings)",
+        logy=False,
+        save_path=f"{FIG_DIR}/all_times_vs_T.png"
+    )
     plot_T(
         df_T,
         y_cols=["RequestTime","SubmitTime","SolveTime"],
@@ -636,123 +527,123 @@ if __name__ == "__main__":
         logy=True,
         save_path=f"{FIG_DIR}/all_times_vs_T_log.png"
     )
-# 
-#     df_RS = pd.read_csv(f"{DATA_DIR}/vary_input_size.csv")
-#     df_RS.columns = df_RS.columns.str.strip()
-#     plot_RequestSize(
-#         df_RS,
-#         y_cols=["SolveTime"],
-#         title="Solve Time vs. Input Size",
-#         ylabel="Time (ms)",
-#         xlabel="Input Size (# elements)",
-#         options=[0,1],
-#         save_path=f"{FIG_DIR}/solve_time_vs_reqsize.png"
-#     )
-#     plot_RequestSize(
-#         df_RS,
-#         y_cols=["RequestTime","SubmitTime","SolveTime"],
-#         title="All Times vs. Input Size",
-#         ylabel="Time (ms)",
-#         xlabel="Input Size (# elements)",
-#         options=[1],
-#         save_path=f"{FIG_DIR}/all_times_vs_reqsize.png"
-#     )
-# 
-#     df_C = pd.read_csv(f"{DATA_DIR}/cycles.csv.cycles.csv")
-#     df_C.columns = df_C.columns.str.strip()
-#     cap = df_C.groupby("T")["Cycles"].transform(lambda x: x.quantile(0.99))
-#     df_C["Cycles"] = df_C["Cycles"].clip(upper=cap)
-# 
-#     plot_cycles_variance(
-#         df_C,
-#         Ts=[2**i for i in range(9,20, 3)],
-#         title="Cycles per Iteration by T",
-#         xlim=0,
-#         window=3,
-#         xlog=True,
-#         save_path=f"{FIG_DIR}/cycles_by_iteration_all_t.png"
-#     )
-# 
-#     plot_cycles_boxplot(
-#         df_C,
-#         title="Cycle Count Distribution by T",
-#         Ts=[2**i for i in range(9,20)],
-#         save_path=f"{FIG_DIR}/cycles_box_plot.png"
-#     )
-# 
-#     df_Cpy = pd.read_csv(f"{DATA_DIR}/cycles_py.csv")
-#     df_Cpy.columns = df_Cpy.columns.str.strip()
-# 
-#     plot_implementations(
-#         data=[(df_C, "mbedtls squaring loop"),(df_Cpy, "python pow(x, 2**T, N)")],
-#         title="Implementation Comparison of Puzzle Computation",
-#         save_path=f"{FIG_DIR}/cycles_impl_comp.png"
-#     )
-# 
-#     plot_implementations(
-#         data=[(df_Cpy, "python puzzle computation")],
-#         title="Total Cycles vs. T",
-#         save_path=f"{FIG_DIR}/cycles_python.png"
-#     )
-# 
-#     df_E = pd.read_csv(f"{DATA_DIR}/vary_exp_cycles.csv")
-#     df_E.columns = df_E.columns.str.strip()
-# 
-#     plot_exp_cycles(
-#         df_E,
-#         y_cols=["RequestTime","SubmitTime","SolveTime"],
-#         title="All Times vs. Expected Cycles",
-#         ylabel="Time (ms)",
-#         xlabel="Expected Cycles (per request)",
-#         logy=False,
-#         save_path=f"{FIG_DIR}/all_times_vs_exp_cycles.png"
-#     )
-# 
-#     df_D = pd.read_csv(f"{DATA_DIR}/vary_domain_size.csv")
-#     df_D.columns = df_D.columns.str.strip()
-# 
-#     plot_domain_sizes(
-#         df_D,
-#         y_cols=["RequestTime","SubmitTime","SolveTime"],
-#         title="All Times vs. Domain Size",
-#         ylabel="Time (ms)",
-#         xlabel="Domain Size",
-#         logy=False,
-#         save_path=f"{FIG_DIR}/all_times_vs_domain_size.png"
-#     )
-# 
-#     df_S = pd.read_csv(f"{DATA_DIR}/vary_priv_set_size.csv")
-#     df_S.columns = df_S.columns.str.strip()
-# 
-#     plot_private_set_size(
-#         df_S,
-#         y_cols=["RequestTime","SubmitTime","SolveTime"],
-#         title="All Times vs. Private Set Size",
-#         ylabel="Time (ms)",
-#         xlabel="Private Set Size",
-#         logy=False,
-#         save_path=f"{FIG_DIR}/all_times_vs_priv_set_size.png"
-#     )
-# 
-#     df_Encl = pd.read_csv(f"{DATA_DIR}/encl_data.csv")
-#     df_Encl.columns = df_Encl.columns.str.strip()
-# 
-#     plot_encl_data(
-#         df_Encl,
-#         y_cols=["SetConfigTime","InitTime","TeardownTime"],
-#         title="All Enclave Times vs. Modulus Bits",
-#         ylabel="Time (ms)",
-#         xlabel="Number of Bits",
-#         logy=False,
-#         save_path=f"{FIG_DIR}/encl_times_vs_num_bits.png"
-#     )
-# 
-#     plot_T(
-#         df_Encl[df_Encl["num_bits"] == 1024],
-#         y_cols=["SetConfigTime","InitTime","TeardownTime"],
-#         title="All Enclave Times vs. T",
-#         ylabel="Time (ms)",
-#         xlabel="T (squarings)",
-#         logy=True,
-#         save_path=f"{FIG_DIR}/encl_times_vs_T.png"
-#     )
+
+    df_RS = pd.read_csv(f"{DATA_DIR}/vary_input_size.csv")
+    df_RS.columns = df_RS.columns.str.strip()
+    plot_RequestSize(
+        df_RS,
+        y_cols=["SolveTime"],
+        title="Solve Time vs. Input Size",
+        ylabel="Time (ms)",
+        xlabel="Input Size (# elements)",
+        options=[0,1],
+        save_path=f"{FIG_DIR}/solve_time_vs_reqsize.png"
+    )
+    plot_RequestSize(
+        df_RS,
+        y_cols=["RequestTime","SubmitTime","SolveTime"],
+        title="All Times vs. Input Size",
+        ylabel="Time (ms)",
+        xlabel="Input Size (# elements)",
+        options=[1],
+        save_path=f"{FIG_DIR}/all_times_vs_reqsize.png"
+    )
+
+    df_C = pd.read_csv(f"{DATA_DIR}/cycles.csv.cycles.csv")
+    df_C.columns = df_C.columns.str.strip()
+    cap = df_C.groupby("T")["Cycles"].transform(lambda x: x.quantile(0.99))
+    df_C["Cycles"] = df_C["Cycles"].clip(upper=cap)
+
+    plot_cycles_variance(
+        df_C,
+        Ts=[2**i for i in range(9,20, 3)],
+        title="Cycles per Iteration by T",
+        xlim=0,
+        window=3,
+        xlog=True,
+        save_path=f"{FIG_DIR}/cycles_by_iteration_all_t.png"
+    )
+
+    plot_cycles_boxplot(
+        df_C,
+        title="Cycle Count Distribution by T",
+        Ts=[2**i for i in range(9,20)],
+        save_path=f"{FIG_DIR}/cycles_box_plot.png"
+    )
+
+    df_Cpy = pd.read_csv(f"{DATA_DIR}/cycles_py.csv")
+    df_Cpy.columns = df_Cpy.columns.str.strip()
+
+    plot_implementations(
+        data=[(df_C, "mbedTLS loop"),(df_Cpy, "python pow(x, 2**T, N)")],
+        title="Implementation Comparison of Puzzle Computation",
+        save_path=f"{FIG_DIR}/cycles_impl_comp.png"
+    )
+
+    plot_implementations(
+        data=[(df_Cpy, "python puzzle computation")],
+        title="Total Cycles vs. T",
+        save_path=f"{FIG_DIR}/cycles_python.png"
+    )
+
+    df_E = pd.read_csv(f"{DATA_DIR}/vary_exp_cycles.csv")
+    df_E.columns = df_E.columns.str.strip()
+
+    plot_exp_cycles(
+        df_E,
+        y_cols=["RequestTime","SubmitTime","SolveTime"],
+        title="All Times vs. Expected Cycles",
+        ylabel="Time (ms)",
+        xlabel="Expected Cycles (per request)",
+        logy=False,
+        save_path=f"{FIG_DIR}/all_times_vs_exp_cycles.png"
+    )
+
+    df_D = pd.read_csv(f"{DATA_DIR}/vary_domain_size.csv")
+    df_D.columns = df_D.columns.str.strip()
+
+    plot_domain_sizes(
+        df_D,
+        y_cols=["RequestTime","SubmitTime","SolveTime"],
+        title="All Times vs. Domain Size",
+        ylabel="Time (ms)",
+        xlabel="Domain Size",
+        logy=False,
+        save_path=f"{FIG_DIR}/all_times_vs_domain_size.png"
+    )
+
+    df_S = pd.read_csv(f"{DATA_DIR}/vary_priv_set_size.csv")
+    df_S.columns = df_S.columns.str.strip()
+
+    plot_private_set_size(
+        df_S,
+        y_cols=["RequestTime","SubmitTime","SolveTime"],
+        title="All Times vs. Private Set Size",
+        ylabel="Time (ms)",
+        xlabel="Private Set Size",
+        logy=False,
+        save_path=f"{FIG_DIR}/all_times_vs_priv_set_size.png"
+    )
+
+    df_Encl = pd.read_csv(f"{DATA_DIR}/encl_data.csv")
+    df_Encl.columns = df_Encl.columns.str.strip()
+
+    plot_encl_data(
+        df_Encl,
+        y_cols=["SetConfigTime","InitTime","TeardownTime"],
+        title="All Enclave Times vs. Modulus Bits",
+        ylabel="Time (ms)",
+        xlabel="Number of Bits",
+        logy=False,
+        save_path=f"{FIG_DIR}/encl_times_vs_num_bits.png"
+    )
+
+    plot_T(
+        df_Encl[df_Encl["num_bits"] == 1024],
+        y_cols=["SetConfigTime","InitTime","TeardownTime"],
+        title="All Enclave Times vs. T",
+        ylabel="Time (ms)",
+        xlabel="T (squarings)",
+        logy=True,
+        save_path=f"{FIG_DIR}/encl_times_vs_T.png"
+    )
