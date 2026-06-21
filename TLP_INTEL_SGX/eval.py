@@ -1,12 +1,9 @@
-import subprocess
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import numpy as np
-import os
 import math
 import csv
-import time
 
 labels = {
     "RequestTime": "Puzzle Generation",
@@ -16,197 +13,6 @@ labels = {
     "InitTime": "Crypto Initialisation",
     "TeardownTime": "Crypto Freeing"
 }
-
-BINARY = "./app"
-DATA_DIR = "evaluation/data"
-FIG_DIR = "evaluation/figures"
-
-PROC_F_GHZ = 3.0
-x = int("A111F275CC2E7588000001D300A31E76336D15B9D314CD1A1D8F3D3556975EED", 16)
-N = int("A708C278C8067461B50CD7F104FE4A612A8C53049AE543802914515155A753CFF168C03A64B793FE325C3FC7BEBFB4BFB405AF92EA6993689CA93C71378B9FFD2EFEC803BB61C3B997F7D7D170BEE8D8DF5F943E2D77D936E8946BFC10C59E577F16E90BE67C3185637C9B8AFFD58F7B11F21A6659160C38D6B0E7F7245680860DAF92C12B64E13FFAF10B6A7FC717E905CD19D728FE1F4BA94FFFA6AD9CDDDB58B62631B4FD3E816BF99311132DFB3D0F99596AD1E115EDED8A315E051B12C5BF1A1BA40A2E090CAA4D6B45CF22BD820FF52CA22231A36F63EA5E57623CF8E61A66C611C57BF08902894E75ACEE14C16CC44BBFA86A398708A523DC92F46781", 16)
-
-def measure(T):
-    for _ in range(5):
-        pow(x, 2**T, N)
-    
-    start = time.perf_counter_ns()
-    for i in range(20):
-        pow(x, 2**T, N)
-    elapsed_ns = time.perf_counter_ns() - start
-    return (int((elapsed_ns / 20) * PROC_F_GHZ), int(elapsed_ns / 20000))
-
-def run_once(
-    elements,
-    log=0,
-    log_file=None,
-    num_bits=1024,
-    private_set_digits=4,
-    private_set_size=100,
-    min_expected_cycles=0,
-    T_exp=15,
-    T_baseline_comp=0,
-    T_input_size_comp=0,
-    T_private_set_comp=0,
-):
-    """
-    Calls the binary once with the given config and elements.
-    Appends one row to log_file if log >= 2.
-    """
-    args = [
-        BINARY,
-        "1",                            # do_config = 1 always
-        str(num_bits),
-        str(private_set_digits),
-        str(private_set_size),
-        str(min_expected_cycles),
-        str(T_exp),
-        str(T_baseline_comp),
-        str(T_input_size_comp),
-        str(T_private_set_comp),
-        str(log),
-    ]
-    if log >= 2:
-        args.append(log_file)
-    args.append(str(len(elements)))
-    args += [str(e) for e in elements]
-
-    print("running: ", args)
-
-    result = subprocess.run(args, capture_output=True, text=True)
-    if result.returncode != 0:
-        print("stderr:", result.stderr)
-        print("stdout:", result.stdout)
-        raise RuntimeError(f"Binary exited with code {result.returncode}")
-    if log == 1:
-        print(result.stdout)
-
-
-def gather_data():
-    os.makedirs(DATA_DIR, exist_ok=True)
-    os.makedirs(FIG_DIR, exist_ok=True)
-
-    # -- experiment 1: vary T_exp, single element request --
-    out = f"{DATA_DIR}/vary_T_exp.csv"
-    if os.path.exists(out):
-        os.remove(out)
-    for T_exp in range(1, 25):
-        run_once(
-            elements=[42],
-            log=2,
-            log_file="vary_T_exp",
-            T_exp=T_exp,
-            T_baseline_comp=0,
-            T_input_size_comp=0,
-            T_private_set_comp=0,
-            private_set_size=100,
-        )
-        print(f"vary_T_exp: T_exp={T_exp} done")
-
-    # -- experiment 2: vary input size, constant T vs linear T --
-    # out = f"{DATA_DIR}/vary_input_size.csv"
-    # if os.path.exists(out):
-    #     os.remove(out)
-    # for T_isc in [0, 1]:
-    #     for n in range(1, 100, 10):
-    #         elements = list(range(n))
-    #         run_once(
-    #             elements=elements,
-    #             log=2,
-    #             log_file="vary_input_size",
-    #             T_exp=10,
-    #             T_baseline_comp=0,
-    #             T_input_size_comp=T_isc,
-    #             T_private_set_comp=0,
-    #             private_set_size=100,
-    #         )
-    #     print(f"vary_input_size: T_isc={T_isc} n={n} done")
-
-    # -- experiment 3: cycle measurements --
-    # out = f"{DATA_DIR}/cycles.csv.cycles.csv"
-    # if os.path.exists(out):
-    #     os.remove(out)
-    # for t in range(5, 20):
-    #     run_once(
-    #         elements=[42],
-    #         log=3,
-    #         log_file="cycles",
-    #         T_exp=t,
-    #         T_baseline_comp=0,
-    #         T_input_size_comp=0,
-    #         T_private_set_comp=0,
-    #         private_set_size=100,
-    #     )
-    # print("cycles done")
-    # with open(f"{DATA_DIR}/cycles_py.csv", "w", newline="") as f:
-    #     writer = csv.writer(f)
-    #     writer.writerow(["T","Time","Cycles"])
-    #     for t in range(5,20):
-    #         cycles, ms = measure(2**t)
-    #         writer.writerow([(2**t), ms, cycles])
-
-#     out = f"{DATA_DIR}/vary_exp_cycles.csv"
-#     if os.path.exists(out):
-#         os.remove(out)
-#     cycles_per_it = 300000
-#     for i in range(1, 20):
-#         run_once(
-#             elements=[42],
-#             log=2,
-#             log_file="vary_exp_cycles",
-#             T_exp=1,
-#             T_baseline_comp=1,
-#             T_input_size_comp=0,
-#             T_private_set_comp=0,
-#             private_set_size=100,
-#             min_expected_cycles=(2**i)*cycles_per_it
-#         )
-    # 
-    # out = f"{DATA_DIR}/vary_domain_size.csv"
-    # if os.path.exists(out):
-    #     os.remove(out)
-    # cycles_per_it = 300000
-    # for i in range(4, 20):
-    #     run_once(
-    #         elements=[42],
-    #         log=2,
-    #         log_file="vary_domain_size",
-    #         T_exp=1,
-    #         T_baseline_comp=1,
-    #         T_input_size_comp=0,
-    #         T_private_set_comp=0,
-    #         private_set_size=100,
-    #         min_expected_cycles=2**8 * cycles_per_it,
-    #         private_set_digits=i
-    #     )
-    
-    # 
-    # out = f"{DATA_DIR}/vary_priv_set_size.csv"
-    # if os.path.exists(out):
-    #     os.remove(out)
-    # cycles_per_it = 300000
-    # for i in range(100, 10001, 500):
-    #     run_once(
-    #         elements=[42],
-    #         log=2,
-    #         log_file="vary_priv_set_size",
-    #         T_exp=1,
-    #         T_baseline_comp=1,
-    #         T_input_size_comp=0,
-    #         T_private_set_comp=1,
-    #         private_set_size=i,
-    #         min_expected_cycles=2**8 * cycles_per_it,
-    #         private_set_digits=4
-    #     )
-
-    # for n_bits in range(6, 11):
-    #     for T_exp in range(5, 16):
-    #         run_once(
-    #             elements=[42],
-    #             log=2,
-    #             log_file="vary_T_num_bits",
-    #             T_exp=T_exp,
-    #             num_bits=2**n_bits
-    #         )
     
 def plot_T(df, y_cols, title, ylabel, xlabel, logy, save_path=None):
     fig, ax = plt.subplots(figsize=(10, 6))
@@ -495,8 +301,6 @@ def plot_encl_data(df, y_cols, title, ylabel, xlabel, logy, save_path=None):
     plt.close(fig)
 
 if __name__ == "__main__":
-    # gather_data()
-
     df_T = pd.read_csv(f"{DATA_DIR}/vary_T_exp.csv")
     df_T.columns = df_T.columns.str.strip()
 
@@ -509,15 +313,7 @@ if __name__ == "__main__":
         logy=False,
         save_path=f"{FIG_DIR}/solve_time_vs_T.png"
     )
-    plot_T(
-        df_T,
-        y_cols=["RequestTime","SubmitTime","SolveTime"],
-        title="All Times vs. T",
-        ylabel="Time (ms)",
-        xlabel="T (squarings)",
-        logy=False,
-        save_path=f"{FIG_DIR}/all_times_vs_T.png"
-    )
+
     plot_T(
         df_T,
         y_cols=["RequestTime","SubmitTime","SolveTime"],
@@ -539,6 +335,7 @@ if __name__ == "__main__":
         options=[0,1],
         save_path=f"{FIG_DIR}/solve_time_vs_reqsize.png"
     )
+    
     plot_RequestSize(
         df_RS,
         y_cols=["RequestTime","SubmitTime","SolveTime"],
@@ -562,28 +359,6 @@ if __name__ == "__main__":
         window=3,
         xlog=True,
         save_path=f"{FIG_DIR}/cycles_by_iteration_all_t.png"
-    )
-
-    plot_cycles_boxplot(
-        df_C,
-        title="Cycle Count Distribution by T",
-        Ts=[2**i for i in range(9,20)],
-        save_path=f"{FIG_DIR}/cycles_box_plot.png"
-    )
-
-    df_Cpy = pd.read_csv(f"{DATA_DIR}/cycles_py.csv")
-    df_Cpy.columns = df_Cpy.columns.str.strip()
-
-    plot_implementations(
-        data=[(df_C, "mbedTLS loop"),(df_Cpy, "python pow(x, 2**T, N)")],
-        title="Implementation Comparison of Puzzle Computation",
-        save_path=f"{FIG_DIR}/cycles_impl_comp.png"
-    )
-
-    plot_implementations(
-        data=[(df_Cpy, "python puzzle computation")],
-        title="Total Cycles vs. T",
-        save_path=f"{FIG_DIR}/cycles_python.png"
     )
 
     df_E = pd.read_csv(f"{DATA_DIR}/vary_exp_cycles.csv")

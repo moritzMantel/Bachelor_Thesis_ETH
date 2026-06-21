@@ -3,6 +3,9 @@
 
 std::unordered_set<uint64_t> private_set;
 
+/*
+ * Interface with the internal private set, computes intersection.
+ */
 std::vector<uint64_t> compute_intersection(int n, uint64_t *elements)
 {
     std::vector<uint64_t> intersection;

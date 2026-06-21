@@ -68,7 +68,7 @@ void initialize_private_set(void);
 /* 
  * Enclave.cpp
  */
-void generate_base(mbedtls_mpi *x, int n, uint64_t *elements);
+int generate_base(mbedtls_mpi *x, int n, uint64_t *elements);
 
 
 #if defined(__cplusplus)

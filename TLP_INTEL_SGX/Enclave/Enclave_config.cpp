@@ -4,7 +4,6 @@
 uint64_t compute_T_set(void);
 int adj_exponent_set(mbedtls_mpi *final_exp, uint64_t T_final);
 
-
 /*
  * struct config {
  *      uint64_t num_bits:              
@@ -17,19 +16,20 @@ int adj_exponent_set(mbedtls_mpi *final_exp, uint64_t T_final);
  *      int T_private_set_comp;         
  * };
  */
-
 struct config conf = {
     1024,   // number of bits of modulus (/2)
-    4,     // how large is the domain of private set (eg. how many digits)
-    1000,    // how many items should be in private set
-    3000000,      // expected number of cycles per request
+    4,      // how large is the domain of private set (eg. how many digits)
+    1000,   // how many items should be in private set
+    3000000,// expected number of cycles per request
     15,     // for default T = 2^T_exp
     0,      // 0 for T = 2^T_exp, 
-            // 1 for T s.t. min expected cycles sat.
+            // 1 for T s.t. min expected cycles sat. 
+            // (requires T_private_set_comp=1)
     1,      // 0 for constant T
             // 1 for linear scaling with input size
     0       // 0 for constant T
             // 1 to sat. E_cycles[hit]
+            // (requires T_baseline_comp=1)
 };
 uint64_t T_base;
 
@@ -81,6 +81,9 @@ uint64_t config_compute_T(int n)
          */
         return n * compute_T_set();
     }
+    default: {
+        return 0;
+    }
     }
 }
 int config_adj_exponent(mbedtls_mpi *final_exp, int n)
@@ -117,8 +120,16 @@ int config_adj_exponent(mbedtls_mpi *final_exp, int n)
         mbedtls_mpi_free(&temp);
         return 0;
     }
+    default: {
+        return 0;
+    }
     }
 }
+
+/*
+ * Dummy implementation of a private set:
+ * evenly spaced integers in the universe.
+ */
 void initialize_private_set(void)
 {
     private_set.clear();
@@ -133,9 +144,11 @@ void initialize_private_set(void)
  * This allows for overwriting the default conf.
  * This is used to evaluate parameters.
  * 
+ * 
+ * 
  * Returns:
  *      * 0         if successful
- *      * -1        if parameters not allowed
+ *      * < 0       if parameters not allowed    
  */
 int ecall_set_config(struct config *c)
 {
@@ -220,7 +233,7 @@ int adj_exponent_set(mbedtls_mpi *final_exp, uint64_t T_final)
                 return -1;
             }
         }
-        break;
+        return 0;
     }
     default: {
         return 0;

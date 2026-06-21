@@ -61,7 +61,7 @@ int initialized = 0;
 /*
  * Initialises the cryptographic primitives necessary for the TLP.
 
- * Must be called before the first calls to 
+ * Must be called before the first calls to
  *      * 'ecall_request_puzzle'
  *      * 'ecall_submit_solution'
  * 
@@ -83,7 +83,6 @@ int ecall_init(void)
 
     mbedtls_mpi p;
     mbedtls_mpi q;
-    mbedtls_mpi T_mpi;
 
     initialize_private_set();
 
@@ -97,6 +96,7 @@ int ecall_init(void)
         goto exit_1;
     }
 
+    mbedtls_mpi_init(&p);
     mbedtls_mpi_init(&q);
     if (mbedtls_mpi_gen_prime(&p, config_get_num_bits(), 0,
                             mbedtls_ctr_drbg_random,
@@ -206,34 +206,54 @@ void ecall_teardown(void)
     initialized = 0;
 }
 
-void generate_base(mbedtls_mpi *x, int n, uint64_t *elements)
+/* 
+ * Internal helper: computes the base x deterministically
+ *  from the requested elements using sha256.
+ */
+int generate_base(mbedtls_mpi *x, int n, uint64_t *elements)
 {
     unsigned char res[32];
-    unsigned char buffer[n * sizeof(uint64_t)];
+    std::vector<uint64_t> elems_buffer(elements, elements + n);
+    std::sort(elems_buffer.begin(), elems_buffer.end());
 
     mbedtls_mpi one;
     mbedtls_mpi_init(&one);
-    mbedtls_mpi_lset(&one, 1);
     mbedtls_mpi gcd;
     mbedtls_mpi_init(&gcd);
+    int ret = 0;
 
-    for (int i = 0; i < n; i++) {
-        uint64_t v = elements[i];
-        memcpy(&buffer[i * sizeof(uint64_t)], &v, sizeof(uint64_t));
+    if (mbedtls_sha256(
+        reinterpret_cast<unsigned char*>(elems_buffer.data()),
+        elems_buffer.size() * sizeof(uint64_t), res, 0) != 0) {
+        ret = -1;
+        goto exit;
     }
 
-    if (mbedtls_sha256(buffer, sizeof(buffer), res, 0) != 0)
-        printf("Error in hash generation\n");
+    if (mbedtls_mpi_read_binary(x, res, 32) != 0) {
+        ret = -1;
+        goto exit;
+    }
 
-    if (mbedtls_mpi_read_binary(x, res, 32) != 0)
-        printf("Error in reading hash into mpi\n");
+    if (mbedtls_mpi_gcd(&gcd, x, &N) != 0) {
+        ret = -1;
+        goto exit;
+    }
 
-    mbedtls_mpi_gcd(&gcd, x, &N);
+    if (mbedtls_mpi_lset(&one, 1) != 0) {
+        ret = -1;
+        goto exit;
+    }
     /*
      * Probability in the order of 2^{-1024}
      */
-    if (mbedtls_mpi_cmp_mpi(&one, &gcd) != 0) 
-        printf("GCD of x and N not 1!\n");
+    if (mbedtls_mpi_cmp_mpi(&one, &gcd) != 0) {
+        ret = -9;
+        goto exit;
+    }
+exit:
+    mbedtls_mpi_free(&one);
+    mbedtls_mpi_free(&gcd);
+    return ret;
 }
 
 /*
@@ -253,6 +273,7 @@ void generate_base(mbedtls_mpi *x, int n, uint64_t *elements)
  *      * -1        if any of the mbedtls mpi operations fail
  *      * -2        if the writing of the hex strings fail
  *      * -3        if mbedtls state is not initialized correctly
+ *      * -9        if the base generation failed because gcd(x, N) != 1
  */
 int ecall_request_puzzle(char *x_buf, char *N_buf, uint64_t *T, int s, uint64_t *elems)
 {
@@ -266,7 +287,11 @@ int ecall_request_puzzle(char *x_buf, char *N_buf, uint64_t *T, int s, uint64_t 
 
     mbedtls_mpi_init(&x);
 
-    generate_base(&x, n, elems);
+    int gen_base_code = generate_base(&x, n, elems);
+    if (gen_base_code != 0) {
+        ret_code = gen_base_code;
+        goto exit;
+    }
 
     if (mbedtls_mpi_mod_mpi(&x, &x, &N) != 0) {
         ret_code = -1;
@@ -310,11 +335,12 @@ int const_time_memcmp(unsigned char *a, unsigned char *b, size_t len)
  *      * y_str:    the hex string containing the submitted solution y
  * 
  * Returns:
- *      * 0         if the intersection was computed and successfully returned
+ *      * 0         if the intersection was successfully returned
  *      * -1        if the solution was not accepted
  *      * -2        if any of the mbedtls mpi operations fail
  *      * -3        if reading the hex string fails
  *      * -4        if mbedtls state is not initialized correctly
+ *      * -9        if the base generation failed because gcd(x, N) != 1
  */
 int ecall_submit_solution(uint64_t *result, int s, uint64_t *elems, char *y_str)
 {
@@ -324,7 +350,6 @@ int ecall_submit_solution(uint64_t *result, int s, uint64_t *elems, char *y_str)
     mbedtls_mpi x;
     mbedtls_mpi y;
     mbedtls_mpi final_exp;
-    mbedtls_mpi RR;
     int ret;
     int n = s / sizeof(uint64_t);
     unsigned char y_buf[MPI_STR_SIZE];
@@ -333,22 +358,27 @@ int ecall_submit_solution(uint64_t *result, int s, uint64_t *elems, char *y_str)
     mbedtls_mpi_init(&x);
     mbedtls_mpi_init(&y);
     mbedtls_mpi_init(&final_exp);
+    
+    int gen_base_code = generate_base(&x, n, elems);
+    if (gen_base_code != 0) {
+        ret = gen_base_code;
+        goto exit;
+    }
 
-    generate_base(&x, n, elems);
-
-    config_adj_exponent(&final_exp, n);
+    if (config_adj_exponent(&final_exp, n) != 0) {
+        ret = -2;
+        goto exit;
+    }
 
     if (mbedtls_mpi_mod_mpi(&x, &x, &N) != 0) {
         ret = -2;
         goto exit;
     }
 
-    mbedtls_mpi_init(&RR);
-    if (mbedtls_mpi_exp_mod(&x, &x, &final_exp, &N, &RR) != 0) {
+    if (mbedtls_mpi_exp_mod(&x, &x, &final_exp, &N, NULL) != 0) {
         ret = -2;
         goto exit;
     }
-    mbedtls_mpi_free(&RR);
 
     if (mbedtls_mpi_read_string(&y, 16, y_str) != 0) {
         ret = -3;
@@ -384,6 +414,7 @@ int ecall_submit_solution(uint64_t *result, int s, uint64_t *elems, char *y_str)
 exit:
     mbedtls_mpi_free(&x);
     mbedtls_mpi_free(&y);
+    mbedtls_mpi_free(&final_exp);
     return ret;
 }
 

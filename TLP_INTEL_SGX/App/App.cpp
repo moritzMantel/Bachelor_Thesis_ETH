@@ -70,11 +70,9 @@ void print_error_message(sgx_status_t ret)
     }
     printf("Error: Unexpected error occurred.\n");
 }
-
-/* ------------------------------------------------------------------ */
-/*  SGX setup                                                           */
-/* ------------------------------------------------------------------ */
-
+/*
+ * Enclave creation.
+ */
 int initialize_enclave(void)
 {
     sgx_status_t ret = sgx_create_enclave(ENCLAVE_FILENAME, SGX_DEBUG_FLAG,
@@ -92,7 +90,7 @@ void ocall_print_string(const char *str)
 }
 
 /*
- * Returns the current number of cycles
+ * Helper that returns the current number of cycles
  */
 uint64_t get_cycles()
 {
@@ -166,6 +164,7 @@ void compute_puzzle_internal_cycles(char *y, char *x, char *N, uint64_t T, std::
  *      1  print result to stdout
  *      2  append one CSV row to log_file
  *      3  append one CSV row + write per-squaring cycle counts
+ *      4  print puzzle details to stdout 
  *
  * Returns 
  *      * 0             on success, 
@@ -240,7 +239,7 @@ int run_request(std::vector<uint64_t> &elements, int log,
     /* 
      * logging
      */
-    if (log == 1) {
+    if (log == 1 || log == 4) {
         printf("success, intersection size: %d, elements: ", intersection_size);
         for (int i = 0; i < intersection_size; i++)
             printf("%lu ", intersection[i]);
