@@ -23,6 +23,8 @@ Verification is cheap (a single modular exponentiation using the precomputed exp
 
 The TEE does not store any state for a client, the basis for the puzzle is recomputed deterministically from the requested element.
 
+The python script `tlp_primitive.py` illustrates the basic principle behind the puzzle.
+
 ## About
  
 | | |
