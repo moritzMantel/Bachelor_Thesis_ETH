@@ -7,7 +7,7 @@ import json
 #
 # we first need to load the library and define they c types
 #
-lib = ctypes.CDLL("/Users/moritzmantel/00_code/00_ethz/06_FS26/00_BT/BT-Implementation/TLP_VM_TEE/build/rate_limiter.dylib")
+lib = ctypes.CDLL("./build/rate_limiter.dylib")
 
 lib.request.argtypes     = [ctypes.c_char_p, ctypes.c_ulong]
 lib.request.restype      = None
