@@ -64,7 +64,9 @@ uint64_t measure_mbedtls_exp_mod(mbedtls_mpi *e)
 
 int main()
 {
-    // Comparison side-channel measurement
+    /*
+     * Comparison side-channel measurement
+     */
     {
         bool write_header = !std::ifstream("data/sidechannel.csv").good();
         std::ofstream file("data/sidechannel.csv", std::ios::app);
@@ -97,7 +99,9 @@ int main()
         mbedtls_mpi_free(&x_mpi);
     }
 
-    // Exponent-dependent timing measurement
+    /*
+     * Exponent-dependent timing measurement
+     */
     {
         bool write_header = !std::ifstream("data/sidechannel_exp.csv").good();
         std::ofstream file("data/sidechannel_exp.csv", std::ios::app);
