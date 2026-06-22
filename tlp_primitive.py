@@ -1,18 +1,25 @@
-import random
-import math
-
+#=====================================================
 # puzzle is generated like this
-N = 13 * 17
-T_Base = 3
-T = 2**T_Base
+# phi and exp are kept secret
+#-----------------------------------------------------
+
+N = 13 * 17             # modulus
+T_exp = 3
+T = 2**T_exp            # T defines difficulty
 phi = 12 * 16
-exp = (2**T) % phi
+exp = (2**T) % phi      # allows shortcut for verifier
 x = 13
 
-# solver does this
-y1 = x
-for i in range(T):
-    y1 = (y1 * y1) % N
 
+#=====================================================
+# solver does this
+# and knows only x, T and N
+#-----------------------------------------------------
+
+y = pow(x, 2**T, N)             # runs in O(T)
+
+
+#=====================================================
 # verifier does this
-assert(y1 == pow(x, exp, N))
+#-----------------------------------------------------
+assert(y == pow(x, exp, N))     # runs in O(log(exp))   
