@@ -74,7 +74,6 @@ def plot_line(series, title, xlabel, ylabel,
     _save_or_show(fig, save_path)
 
 def _df_series(df, x_col, y_cols, n_colors=None):
-    """Build series list from a dataframe for plot_line."""
     n = n_colors or len(y_cols)
     colors = cm.tab10(np.linspace(0, 1, n))
     return [
@@ -329,8 +328,8 @@ if __name__ == "__main__":
                         save_path=f"{FIG_DIR}/cycles_boxplot.png")
 
     # side channel: comparison timing
-    df_sc = pd.read_csv(f"{DATA_DIR}/sidechannel.csv")
-    df_sc["Time"] = df_sc["Time"] / 1000
+    df_sc = pd.read_csv(f"{DATA_DIR}/sidechannel_comp.csv")
+    df_sc["Time"] = df_sc["Time"]
     sc_series = [
         {"x": g.sort_values("MatchingBytes")["MatchingBytes"],
          "y": g.sort_values("MatchingBytes")["Time"],
@@ -340,17 +339,7 @@ if __name__ == "__main__":
                                      cm.tab10(np.linspace(0, 1, df_sc["Impl"].nunique())))
     ]
     plot_line(sc_series,
+              logy=True,
               title="Side-Channel: Comparison Timing vs. Matching Bytes",
               xlabel="Matching Bytes (prefix length)", ylabel="Time (ns)",
               save_path=f"{FIG_DIR}/sidechannel_comparison.png")
-
-    # side channel: modular exponentiation
-    df_se = pd.read_csv(f"{DATA_DIR}/sidechannel_exp.csv")
-    df_se["Time"] = df_se["Time"] / 1000
-    plot_line([{"x": df_se["E"], "y": df_se["Time"],
-                "label": "mbedtls_mpi_exp_mod", "color": "blue",
-                "markersize": 3, "linewidth": 1}],
-              title="Side-Channel: Modular Exponentiation Time vs. Exponent Size",
-              xlabel="Exponent", ylabel="Time (ns)",
-              logx=True,
-              save_path=f"{FIG_DIR}/sidechannel_exp.png")

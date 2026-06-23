@@ -41,35 +41,14 @@ uint64_t measure_comparison_mpi(mbedtls_mpi *x_mpi, mbedtls_mpi *y_mpi)
     return std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count();
 }
 
-uint64_t measure_mbedtls_exp_mod(mbedtls_mpi *e)
-{
-    mbedtls_mpi x_mpi, N_mpi, result;
-    mbedtls_mpi_init(&x_mpi);
-    mbedtls_mpi_init(&N_mpi);
-    mbedtls_mpi_init(&result);
-    mbedtls_mpi_read_string(&N_mpi, 16, N_HEX);
-
-    auto t0 = std::chrono::steady_clock::now();
-    for (int i = 0; i < ITERS; i++) {
-        mbedtls_mpi_read_string(&x_mpi, 16, X_HEX);
-        mbedtls_mpi_exp_mod(&result, &x_mpi, e, &N_mpi, NULL);
-    }
-    auto t1 = std::chrono::steady_clock::now();
-
-    mbedtls_mpi_free(&x_mpi);
-    mbedtls_mpi_free(&N_mpi);
-    mbedtls_mpi_free(&result);
-    return std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count();
-}
-
 int main()
 {
     /*
      * Comparison side-channel measurement
      */
     {
-        bool write_header = !std::ifstream("data/sidechannel.csv").good();
-        std::ofstream file("data/sidechannel.csv", std::ios::app);
+        bool write_header = !std::ifstream("evaluation/data/sidechannel_comp.csv").good();
+        std::ofstream file("evaluation/data/sidechannel_comp.csv", std::ios::app);
         if (write_header)
             file << "Impl,MatchingBytes,Time\n";
 
@@ -98,25 +77,5 @@ int main()
 
         mbedtls_mpi_free(&x_mpi);
     }
-
-    /*
-     * Exponent-dependent timing measurement
-     */
-    {
-        bool write_header = !std::ifstream("data/sidechannel_exp.csv").good();
-        std::ofstream file("data/sidechannel_exp.csv", std::ios::app);
-        if (write_header)
-            file << "Impl,E,Time\n";
-
-        mbedtls_mpi e;
-        mbedtls_mpi_init(&e);
-        for (int i = 0; i < 60; i++) {
-            uint64_t E = (uint64_t)pow(2, i);
-            mbedtls_mpi_lset(&e, (mbedtls_mpi_sint)E);
-            file << "mbedtls_exp_mod," << E << "," << measure_mbedtls_exp_mod(&e) << "\n";
-        }
-        mbedtls_mpi_free(&e);
-    }
-
     return 0;
 }
