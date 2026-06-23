@@ -1,0 +1,9 @@
+*.o
+*.so
+Enclave_t.*
+Enclave_u.*
+app
+*.pem
+*.lds
+sidechannel_experiment
+solver_experiments
