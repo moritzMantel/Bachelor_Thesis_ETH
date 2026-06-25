@@ -7,3 +7,8 @@ app
 *.lds
 sidechannel_experiment
 solver_experiments
+build/
+.cache/
+compile_commands.json
+__pycache__/
+test_timing.py
