@@ -25,6 +25,10 @@ The TEE does not store any state for a client, the basis for the puzzle is recom
 
 The python script `tlp_primitive.py` illustrates the basic principle behind the puzzle.
 
+### Thesis Document
+
+The full thesis, **"Time-Lock Puzzles for Stateless Rate-Limiting in Trusted Execution Environments: Protecting Private Set Intersection Against Brute-Force Attacks"** is included in this repository as [`BSc_Thesis_ETHZ_Moritz_Mantel_2026.pdf`](./BSc_Thesis_ETHZ_Moritz_Mantel_2026.pdf). It covers the full background, threat model, design desicisions, and evaluation behind the prototype above, as well as a discussion of the limitations.
+
 ## About
  
 | | |
